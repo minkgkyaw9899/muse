@@ -1,0 +1,90 @@
+# Muse product requirements
+
+## Product goal
+
+Muse is a private, ad-free, offline-first reading app whose primary advantage is responsive navigation through unusually large or expensive-to-render PDFs. iOS is the first-class platform. Android remains buildable, but feature parity is not required until the iOS reader is proven.
+
+## Primary user journey
+
+1. The reader imports one or more PDFs through the iOS Files interface.
+2. Muse copies each file into app-managed storage, validates it, and adds it to the Library.
+3. The reader opens a publication at its saved reading position.
+4. The reader chooses horizontal paginated or vertical continuous reading.
+5. The reader navigates without visible stalls, jumps to a page, searches text, or manages bookmarks.
+6. Muse restores the same reading position and publication-specific state on the next launch.
+
+## Functional requirements
+
+### Library
+
+- Import one or multiple PDF files from system document providers.
+- Store title, source filename, byte size, page count, import date, last-opened date, reading position, and a stable content fingerprint.
+- Show import, validation, duplicate, missing-file, corrupt-file, encrypted-file, and unsupported-file states.
+- Remove a publication and its derived cache without affecting other publications.
+- Operate without an account, advertisements, analytics, or network access.
+
+### Reader
+
+- Open very large PDFs without constructing one JavaScript object or view per page.
+- Support horizontal paginated and vertical continuous reading modes.
+- Jump to a validated one-based page number while storing zero-based page indexes internally.
+- Restore the last reading position per publication.
+- Add, list, jump to, rename, and delete bookmarks per publication.
+- Search extractable PDF text, show incremental results, cancel search, and jump to a result.
+- Expose loading, rendering, unavailable-text, password-required, corrupt-document, and out-of-memory recovery states.
+- Preserve zoom and navigation behavior without blocking the JavaScript or main UI thread.
+
+### Appearance
+
+- Use a clean, restrained interface following an approximate 60/30/10 distribution:
+  - 60% canvas/background: `#EAE8E5`
+  - 30% surfaces and secondary areas: `#DEC8B5`
+  - 10% accent and selected states: `#9D683B`
+  - text and high-contrast controls: `#000000`
+- Centralize semantic tokens; raw palette values may appear only in the theme definition.
+- Follow React Native Reusables component patterns implemented with Uniwind/Tailwind CSS.
+- On iOS 26+, use Liquid Glass selectively for navigation and floating controls when runtime capability checks pass.
+- On iOS below 26 and unsupported environments, render an intentional opaque/translucent fallback with identical behavior and accessibility.
+- Support light/dark accessibility contrast, Dynamic Type, VoiceOver labels, 44-point minimum touch targets, and Reduce Motion.
+
+## Performance requirements
+
+The target corpus must include tiny PDFs, image-heavy scans, malformed files, password-protected files, and synthetic documents approaching 100,000 pages.
+
+- Opening cost must scale with work needed for the first viewport, not total page count.
+- Rendering uses bounded background workers and cancellation; stale work never outranks the visible page.
+- Keep the visible page plus a small adaptive window of adjacent pages warm. The initial policy is current page, two pages ahead, and one page behind; measurement may change it.
+- Use memory and disk caches with explicit byte budgets and least-recently-used eviction.
+- Cache keys include content fingerprint, page index, pixel dimensions/scale, color mode, and renderer version.
+- Never serialize page bitmaps through JSON/Base64 or keep unbounded decoded images in JavaScript memory.
+- Performance changes require before/after measurements on a named device and fixture; intuition alone is not acceptance evidence.
+
+Initial targets, to be calibrated after the native spike:
+
+- first useful page rendition within 1.5 seconds for a representative local PDF on the baseline device;
+- visible-page render scheduling within 50 ms of a navigation request;
+- no sustained main-thread stalls above 100 ms during steady navigation;
+- no cache growth beyond configured disk and memory budgets.
+
+## Compatibility and constraints
+
+- Expo SDK 57, React Native 0.86, React 19.2, iOS 16.4 minimum.
+- Development builds only; Expo Go is unsupported.
+- Root native projects are generated with CNG.
+- Imported files are app-local copies. Arbitrary persistent filesystem paths are not a cross-platform contract.
+- PDF is milestone one. EPUB/AZW/Kindle DRM formats are out of scope. A Kindle-like experience means paginated navigation and reader ergonomics, not DRM bypass or guaranteed PDF text reflow.
+- MuPDF is not approved for distribution until AGPL compliance or a commercial license is chosen.
+
+## Delivery milestones
+
+1. Foundation: architecture, validation, CI, development builds, test harness.
+2. Native spike: open one PDF, report metadata, render one page, measure memory and latency.
+3. Library: import, copy, fingerprint, persist, list, delete.
+4. Reader core: paginated mode, jump, position restore, native scheduler and cache.
+5. Continuous mode, bookmarks, and text search.
+6. Liquid Glass/fallback design system, accessibility, and performance hardening.
+7. Store readiness, licensing evidence, privacy manifest, crash recovery, and release automation.
+
+## Definition of done
+
+A feature is done only when its acceptance criteria pass, the validation loop in `AGENTS.md` is green, relevant performance evidence is captured, the full diff is reviewed, and affected documentation is updated.
