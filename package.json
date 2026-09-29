@@ -42,6 +42,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
     "@testing-library/react-native": "^14.0.1",
     "@types/jest": "29.5.14",
     "@types/react": "~19.2.2",
@@ -56,6 +58,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "biome lint .",
+    "lint:commits": "commitlint",
     "format": "biome format --write .",
     "check": "biome check .",
     "check:write": "biome check --write .",

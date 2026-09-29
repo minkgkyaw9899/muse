@@ -42,6 +42,8 @@ Every feature follows this loop. Record the implementation plan using `docs/impl
 
 Never mark work complete while a required validation command fails. Do not weaken, skip, or delete a test merely to make validation pass.
 
+Use Conventional Commits for every commit: `type(scope): description`, with the scope optional. Examples: `feat(reader): restore position`, `fix(import): clean up failed copy`, `ci: check commit messages`. The CI commit checker validates each commit entering `develop` or `main`; do not use a non-conforming message even for a work-in-progress commit.
+
 ## Platform and native rules
 
 - The project is pinned to Expo SDK 57. Before using an Expo, EAS, or React Native interface, read the `expo` major version from `package.json`, then consult `https://docs.expo.dev/versions/v57.0.0/` and the relevant page linked from `https://docs.expo.dev/llms.txt`.

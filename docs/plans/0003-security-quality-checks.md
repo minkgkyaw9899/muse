@@ -19,7 +19,7 @@ Pull requests and pushes for `develop` and `main` run reproducible code-quality 
 - Analyze JavaScript and TypeScript with CodeQL's security-and-quality queries.
 - Document how to interpret and maintain the checks.
 
-No EAS builds, runtime app changes, package additions, or native code are included.
+No EAS builds, runtime app changes, or native code are included. Commitlint is added in the companion Conventional Commits checker plan; it is development-only and does not affect the app bundle.
 
 ## Public seam and acceptance criteria
 
@@ -42,7 +42,7 @@ The public seam is the GitHub Actions workflow: a PR or push to either long-live
 - [x] `bun audit --audit-level=high`
 - [x] Local workflow syntax/static checks (`actionlint` 1.7.12)
 - [ ] PR checks
-- [ ] Full diff review and documentation update
+- [x] Full diff review and documentation update
 
 ## Rollback and risks
 

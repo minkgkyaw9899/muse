@@ -133,8 +133,8 @@ Do not mock internal collaborators. Use in-memory adapters at declared seams and
 - CNG generates root native projects; never commit them.
 - `modules/mupdf-renderer` is a local Expo module created with `create-expo-module` when the native spike begins.
 - MuPDF source/binaries must be reproducibly pinned, checksummed, and covered by the chosen license. No floating download during app builds.
-- GitHub Actions runs deterministic JavaScript validation on every PR and push to `main`.
-- EAS Workflows mirrors validation and later owns signed development/preview builds. Running EAS jobs consumes plan resources and requires the project to be linked.
+- GitHub Actions runs deterministic JavaScript validation, Conventional Commits checks, dependency auditing, and CodeQL on PRs to and pushes on `develop` and `main`.
+- Feature and development iOS builds run locally to conserve the free EAS Build allowance. EAS Build is reserved for production releases; EAS validation remains manually invoked when needed.
 
 ## Failure handling
 

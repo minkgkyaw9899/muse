@@ -13,6 +13,7 @@ This record covers packages introduced for the Muse foundation. Versions are res
 | `jest-expo` `~57.0.5` | Transform Expo/React Native code and assets for Jest. | SDK 57 version selected by Expo CLI. | MIT; acceptable. |
 | `@types/jest` `29.5.14` | Type Jest globals under TypeScript strict mode. | Matches Jest 29; typecheck passes. | MIT; acceptable. |
 | `@testing-library/react-native` `^14.0.1` | Test user-observable React Native behavior as UI slices are added. | Declares React 19 and React Native 0.78+ peers; app uses React 19.2 and RN 0.86. | MIT; acceptable. |
+| `@commitlint/cli` and `@commitlint/config-conventional` `^21.2.3` | Enforce Conventional Commits on repository history in CI and locally. | Development-only Node/Bun CLI; valid and invalid messages were checked under Bun 1.4.2. It does not run in Expo. | MIT; acceptable. |
 
 `react-native-boost` was evaluated but removed from the foundation: no measured bottleneck justified a global Metro integration yet. Performance dependencies require a benchmark-backed feature plan.
 
