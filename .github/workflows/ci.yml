@@ -22,7 +22,7 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
           HEAD_REF: ${{ github.head_ref }}
         run: |
-          if [[ "$BASE_REF" == "develop" && "$HEAD_REF" == feature/* ]]; then exit 0; fi
+          if [[ "$BASE_REF" == "develop" && ( "$HEAD_REF" == feature/* || "$HEAD_REF" == codex/* ) ]]; then exit 0; fi
           if [[ "$BASE_REF" == "main" && "$HEAD_REF" == "develop" ]]; then exit 0; fi
           echo "Feature PRs target develop; only develop targets main."
           exit 1

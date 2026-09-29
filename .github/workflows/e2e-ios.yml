@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   maestro:
-    runs-on: macos-26-arm64
+    runs-on: macos-26
     timeout-minutes: 90
     steps:
       - name: Checkout

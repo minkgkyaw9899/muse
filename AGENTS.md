@@ -39,13 +39,13 @@ Every feature follows this loop. Record the implementation plan using `docs/impl
 10. Fix failures, then run `bun run validate`.
 11. Review the entire diff for correctness, scope, accessibility, performance, and security.
 12. Update affected requirements, architecture, ADRs, and operational notes.
-13. Commit the feature branch, push it, prepare a PR to `develop`, then remove its worktree.
+13. Prepare a focused PR to `develop`; push and open it when requested. Keep the worktree until its work is no longer needed.
 
 Never mark work complete while a required validation command fails. Do not weaken, skip, or delete a test merely to make validation pass.
 
 ## Branch workflow
 
-Read `docs/branching.md` before starting or finishing feature work. `main` is production; `develop` is the development integration branch. Create each feature from `develop` in its own worktree and name the branch `feature/<snake_case_name>`. Feature PRs target `develop`. Release PRs go from `develop` to `main`. Keep `main` protected: no direct commits or pushes. Remove a feature worktree after pushing and preparing its PR; retain the branch until the PR is merged.
+Read `docs/branching.md` before starting or finishing feature work. `main` is stable; `develop` is the beta integration branch. Start features from `develop` in an isolated worktree. Feature PRs target `develop`; release PRs go from `develop` to `main`.
 
 ## Platform and native rules
 
@@ -57,7 +57,7 @@ Read `docs/branching.md` before starting or finishing feature work. `main` is pr
 - MuPDF distribution is blocked until `docs/adr/0001-mupdf-native-renderer.md` records an accepted licensing path.
 - Use Liquid Glass only when both `isLiquidGlassAvailable()` and `isGlassEffectAPIAvailable()` succeed. The same feature must have a complete non-glass design on iOS below 26 and unsupported platforms.
 - Use `bunx expo install <package>` for Expo/React Native packages so SDK-compatible versions are selected. Use Bun for all other package operations.
-- Build development and feature versions locally with `bunx expo run:ios` or `bunx expo run:android`. Use EAS builds only for production releases; do not trigger EAS development or preview builds.
+- Build routine development versions locally with `bunx expo run:ios` or `bunx expo run:android`. Keep EAS development and preview profiles available for beta testing; publish beta and stable releases only when their branches are ready.
 
 ## Code and design rules
 
@@ -86,4 +86,5 @@ bunx expo-doctor
 bunx expo start --dev-client
 bunx expo run:ios
 bunx expo run:ios --configuration Release --device generic --output ./build
+bunx eas-cli build --profile development --platform ios
 ```

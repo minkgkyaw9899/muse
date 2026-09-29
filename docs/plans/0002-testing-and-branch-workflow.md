@@ -2,7 +2,7 @@
 
 ## Goal
 
-Make Jest, React Native Testing Library, and Maestro the project test stack. Record and apply the Git branch flow: production `main`, integration `develop`, and one isolated `feature/<snake_case>` worktree per feature.
+Make Jest, React Native Testing Library, and Maestro the project test stack. Record and apply the Git branch flow: stable `main`, beta integration `develop`, and an isolated worktree per feature.
 
 ## Public seams
 
@@ -28,5 +28,5 @@ Make Jest, React Native Testing Library, and Maestro the project test stack. Rec
 ## Constraints
 
 - Native code requires a development or standalone build; Expo Go is outside this test path.
-- GitHub's macOS runner consumes Actions minutes. EAS automatic jobs are disabled to preserve the free EAS allowance for production release builds. No workflow run is triggered as part of YAML validation.
+- GitHub's macOS runner consumes Actions minutes. EAS automatic jobs are disabled to preserve build allowance for requested beta and stable builds. No workflow run is triggered as part of YAML validation.
 - Main is created from the pre-feature starter commit; feature work never lands there by direct push.

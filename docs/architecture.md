@@ -135,7 +135,7 @@ Do not mock internal collaborators. Use in-memory adapters at declared seams and
 - `modules/mupdf-renderer` is a local Expo module created with `create-expo-module` when the native spike begins.
 - MuPDF source/binaries must be reproducibly pinned, checksummed, and covered by the chosen license. No floating download during app builds.
 - GitHub Actions runs deterministic Jest and React Native Testing Library validation on PRs and pushes to `develop` and `main`.
-- GitHub Actions uses a macOS 26 runner with Xcode 26.6 and an iOS 26.5 simulator to run Maestro flows on feature PRs to `develop`. Local Xcode builds are the development path, including Xcode 27 with a tested iOS 26.5 simulator. EAS builds are reserved for production releases; the EAS validation workflow is manual only.
+- GitHub Actions uses a macOS 26 runner with Xcode 26.6 and an iOS 26.5 simulator to run Maestro flows on feature PRs to `develop`. Local Xcode builds are the routine development path, including Xcode 27 with a tested iOS 26.5 simulator. EAS development and preview profiles remain available for beta testing, and the production profile serves stable releases. The EAS validation workflow is manual only.
 
 ## Failure handling
 
