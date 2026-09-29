@@ -11,6 +11,7 @@ Before planning or implementing any feature, read all three documents:
 3. `docs/requirements.md` — product scope, priorities, and acceptance criteria.
 
 Read `CONTEXT.md` whenever naming domain concepts. Read relevant ADRs in `docs/adr/` before changing an architectural decision.
+Read `docs/testing.md` when adding or changing tests, test scripts, or CI.
 
 For every feature, use the relevant project-installed Matt Pocock skills. At minimum:
 
@@ -33,14 +34,18 @@ Every feature follows this loop. Record the implementation plan using `docs/impl
 5. Run `bun run lint`.
 6. Run `bun run typecheck`.
 7. Run `bun run test:unit`.
-8. Run `bun run test:integration`.
-9. Fix failures and repeat from the smallest failing check.
-10. Run `bun run validate`.
+8. Run `bun run test:integration` and `bun run test:ui`.
+9. Run relevant Maestro flows on an installed simulator build for UI or native behavior changes.
+10. Fix failures, then run `bun run validate`.
 11. Review the entire diff for correctness, scope, accessibility, performance, and security.
 12. Update affected requirements, architecture, ADRs, and operational notes.
-13. Prepare a focused PR; do not push or open it unless requested.
+13. Commit the feature branch, push it, prepare a PR to `develop`, then remove its worktree.
 
 Never mark work complete while a required validation command fails. Do not weaken, skip, or delete a test merely to make validation pass.
+
+## Branch workflow
+
+Read `docs/branching.md` before starting or finishing feature work. `main` is production; `develop` is the development integration branch. Create each feature from `develop` in its own worktree and name the branch `feature/<snake_case_name>`. Feature PRs target `develop`. Release PRs go from `develop` to `main`. Keep `main` protected: no direct commits or pushes. Remove a feature worktree after pushing and preparing its PR; retain the branch until the PR is merged.
 
 ## Platform and native rules
 
@@ -52,6 +57,7 @@ Never mark work complete while a required validation command fails. Do not weake
 - MuPDF distribution is blocked until `docs/adr/0001-mupdf-native-renderer.md` records an accepted licensing path.
 - Use Liquid Glass only when both `isLiquidGlassAvailable()` and `isGlassEffectAPIAvailable()` succeed. The same feature must have a complete non-glass design on iOS below 26 and unsupported platforms.
 - Use `bunx expo install <package>` for Expo/React Native packages so SDK-compatible versions are selected. Use Bun for all other package operations.
+- Build development and feature versions locally with `bunx expo run:ios` or `bunx expo run:android`. Use EAS builds only for production releases; do not trigger EAS development or preview builds.
 
 ## Code and design rules
 
@@ -73,8 +79,11 @@ bun run lint
 bun run typecheck
 bun run test:unit
 bun run test:integration
+bun run test:ui
+bun run test:e2e
 bun run validate
 bunx expo-doctor
 bunx expo start --dev-client
-bunx eas-cli build --profile development --platform ios
+bunx expo run:ios
+bunx expo run:ios --configuration Release --device generic --output ./build
 ```

@@ -37,7 +37,8 @@ src/theme/               Semantic tokens and glass/fallback capability adapter
 src/testing/             Shared test adapters and fixture builders
 modules/mupdf-renderer/   Local Expo native module and vendored/native build integration
 tests/integration/        Cross-module JavaScript integration tests
-e2e/                     Maestro flows after a runnable reader exists
+tests/ui/                 React Native Testing Library rendered behavior tests
+.maestro/                 Maestro flows against an installed simulator app
 ```
 
 Existing source is migrated toward this layout only as features touch it; do not perform a speculative rewrite.
@@ -123,7 +124,7 @@ Tests observe behavior at agreed public seams:
 - domain unit tests: reading-position rules, page-number conversion, cache-key construction, bookmark invariants;
 - application integration tests: import transaction, duplicate handling, position persistence, repository migrations, renderer error mapping using in-memory adapters;
 - native tests: C/Swift ownership, cancellation, cache eviction, corrupt/encrypted fixtures, concurrent render safety;
-- E2E: import fixture, open, navigate, relaunch/restore, bookmark, page jump, fallback/glass smoke tests;
+- E2E: Maestro flows against simulator builds; start with app launch/navigation smoke, then import fixture, open, navigate, relaunch/restore, bookmark, page jump, fallback/glass tests;
 - performance: native benchmark fixtures with recorded device, OS, document fingerprint, cold/warm state, latency, memory, and cache result.
 
 Do not mock internal collaborators. Use in-memory adapters at declared seams and fixture PDFs with known expected behavior.
@@ -133,8 +134,8 @@ Do not mock internal collaborators. Use in-memory adapters at declared seams and
 - CNG generates root native projects; never commit them.
 - `modules/mupdf-renderer` is a local Expo module created with `create-expo-module` when the native spike begins.
 - MuPDF source/binaries must be reproducibly pinned, checksummed, and covered by the chosen license. No floating download during app builds.
-- GitHub Actions runs deterministic JavaScript validation on every PR and push to `main`.
-- EAS Workflows mirrors validation and later owns signed development/preview builds. Running EAS jobs consumes plan resources and requires the project to be linked.
+- GitHub Actions runs deterministic Jest and React Native Testing Library validation on PRs and pushes to `develop` and `main`.
+- GitHub Actions uses a macOS 26 runner with Xcode 26.6 and an iOS 26.5 simulator to run Maestro flows on feature PRs to `develop`. Local Xcode builds are the development path, including Xcode 27 with a tested iOS 26.5 simulator. EAS builds are reserved for production releases; the EAS validation workflow is manual only.
 
 ## Failure handling
 

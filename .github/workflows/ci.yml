@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [develop, main]
 
 permissions:
   contents: read
@@ -13,6 +13,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  branch-policy:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check pull request branch flow
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if [[ "$BASE_REF" == "develop" && "$HEAD_REF" == feature/* ]]; then exit 0; fi
+          if [[ "$BASE_REF" == "main" && "$HEAD_REF" == "develop" ]]; then exit 0; fi
+          echo "Feature PRs target develop; only develop targets main."
+          exit 1
+
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 20

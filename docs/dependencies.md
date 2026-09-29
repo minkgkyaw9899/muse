@@ -17,3 +17,5 @@ This record covers packages introduced for the Muse foundation. Versions are res
 `react-native-boost` was evaluated but removed from the foundation: no measured bottleneck justified a global Metro integration yet. Performance dependencies require a benchmark-backed feature plan.
 
 CI actions are pinned to immutable commits: `actions/checkout` v4.2.2 at `11bd71901bbe5b1630ceea73d27597364c9af683` (MIT) and `oven-sh/setup-bun` v2.2.0 at `0c5077e51419868618aeaa5fe8019c62421857d6` (MIT).
+
+Maestro CLI 2.10.0 is pinned in GitHub Actions with the release ZIP SHA-256 `29b675e10cc12080e445e9bfb2e2b4e4dfb9c0f2e30d5884120d258b5e1cd991`. It runs outside the app dependency graph against an installed simulator build. Its source is Apache-2.0 licensed; no Maestro runtime package is shipped in Muse.

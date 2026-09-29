@@ -60,13 +60,18 @@
     "check": "biome check .",
     "check:write": "biome check --write .",
     "typecheck": "tsc --noEmit",
-    "test": "bun run test:unit && bun run test:integration",
-    "test:unit": "jest --runInBand --no-watchman --testPathIgnorePatterns=/tests/integration/",
+    "test": "bun run test:unit && bun run test:integration && bun run test:ui",
+    "test:unit": "jest --runInBand --no-watchman --testPathPattern=/tests/unit/",
     "test:integration": "jest --runInBand --no-watchman --testPathPattern=/tests/integration/",
-    "validate": "bun run lint && bun run typecheck && bun run test:unit && bun run test:integration && bun run check"
+    "test:ui": "jest --runInBand --no-watchman --testPathPattern=/tests/ui/",
+    "test:e2e": "maestro test .maestro",
+    "validate": "bun run lint && bun run typecheck && bun run test && bun run check"
   },
   "jest": {
     "preset": "jest-expo",
+    "moduleNameMapper": {
+      "\\.css$": "<rootDir>/tests/support/style-mock.js"
+    },
     "transformIgnorePatterns": [
       "node_modules/(?!(.bun|(jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg))"
     ]
