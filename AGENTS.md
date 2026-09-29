@@ -44,6 +44,8 @@ Never mark work complete while a required validation command fails. Do not weake
 
 Use Conventional Commits for every commit: `type(scope): description`, with the scope optional. Examples: `feat(reader): restore position`, `fix(import): clean up failed copy`, `ci: check commit messages`. The CI commit checker validates each commit entering `develop` or `main`; do not use a non-conforming message even for a work-in-progress commit.
 
+Before a context limit, model switch, or pause interrupts unfinished work, update `docs/handoff.md` with the active branch/worktree, completed checks, exact pending actions, blockers, and links. Keep it short, factual, and free of secrets. A resuming agent reads it after the required context, verifies the current Git and PR state, and continues without repeating completed work. Clear stale task details when the work is finished.
+
 ## Platform and native rules
 
 - The project is pinned to Expo SDK 57. Before using an Expo, EAS, or React Native interface, read the `expo` major version from `package.json`, then consult `https://docs.expo.dev/versions/v57.0.0/` and the relevant page linked from `https://docs.expo.dev/llms.txt`.
