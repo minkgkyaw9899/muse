@@ -1,3 +1,5 @@
+/// <reference types="uniwind/types" />
+
 declare module '*.css';
 
 declare module '*.module.css' {

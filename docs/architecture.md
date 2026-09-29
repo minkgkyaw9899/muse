@@ -107,7 +107,7 @@ Selected files are untrusted. Impose size/resource limits, contain parser failur
 
 ## UI architecture
 
-Use semantic tokens (`canvas`, `surface`, `accent`, `text`, `mutedText`, `separator`) backed by the product palette. UI modules consume tokens, not hex values.
+Use semantic tokens (`canvas`, `surface`, `accent`, `onAccent`, `text`, `mutedText`, `separator`, `destructive`) defined once in `src/theme/tokens.ts` for light and dark. `src/global.css` mirrors them for Uniwind classes, and `tests/unit/theme-tokens.test.ts` fails if the two drift. UI modules consume tokens, not hex values. The theme preference (System, Light, Dark) persists through `expo-sqlite/kv-store` behind the `createThemePreference` seam.
 
 `GlassSurface` is a capability adapter with two adapters:
 
