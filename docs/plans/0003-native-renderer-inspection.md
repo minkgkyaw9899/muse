@@ -100,7 +100,7 @@ The interface is two methods. Results are values, not thrown exceptions, so call
 3. [done] Failing tests: cancellation at the seam. Bounded concurrency is not observable through the interface, so it is verified natively in slice 7.
 4. [done] Failing integration test: native error codes map to the union, then `createNativeDocumentRenderer`.
 5. [done] Native `inspect` success on the tiny fixture. The JS contract suite cannot run inside a simulator, so this slice has three parts: the TypeScript wiring (`createMupdfDocumentRenderer`, with a `renderer_unavailable` result when the module is not linked), host-side C tests (`bun run test:native`) against committed fixtures under AddressSanitizer and UBSan, and a manual simulator run of the real adapter (below).
-6. Native error paths and resource limits for the malformed, encrypted, and oversized fixtures.
+6. [done] Native error paths and resource limits for the malformed, encrypted, and oversized fixtures (host C tests; the encrypted fixture is made with `mutool` from the pinned source; the byte-limit boundary is tested, and a mutation of it fails the suite).
 7. Native cancellation, bounded concurrency, and cleanup verified with repeated runs.
 8. Fixtures, measurements recorded in `docs/performance/`, production-profile exclusion and CI check, documentation.
 
