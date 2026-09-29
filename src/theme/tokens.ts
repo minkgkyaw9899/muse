@@ -5,7 +5,6 @@ export type SemanticTokens = {
   canvas: string;
   surface: string;
   accent: string;
-  onAccent: string;
   text: string;
   mutedText: string;
   separator: string;
@@ -14,23 +13,21 @@ export type SemanticTokens = {
 
 export const palettes: Record<ThemeScheme, SemanticTokens> = {
   light: {
-    canvas: '#EAE8E5',
-    surface: '#DEC8B5',
-    accent: '#9D683B',
-    onAccent: '#FFFFFF',
-    text: '#000000',
-    mutedText: '#4A4038',
-    separator: '#B9A899',
+    canvas: '#F3F0EB',
+    surface: '#EAE3DA',
+    accent: '#A3714A',
+    text: '#1F1B17',
+    mutedText: '#5C5148',
+    separator: '#D9CFC3',
     destructive: '#B3261E',
   },
   dark: {
-    canvas: '#16130F',
-    surface: '#2A211A',
-    accent: '#D9A473',
-    onAccent: '#000000',
-    text: '#F5F0EA',
-    mutedText: '#B9ADA1',
-    separator: '#5A4C40',
-    destructive: '#FF8A80',
+    canvas: '#1A1714',
+    surface: '#26221E',
+    accent: '#D9A77E',
+    text: '#F1ECE6',
+    mutedText: '#B5AAA0',
+    separator: '#3A342E',
+    destructive: '#FF9A90',
   },
 };

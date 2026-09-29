@@ -46,12 +46,14 @@ Muse is a private, ad-free, offline-first reading app whose primary advantage is
 ### Appearance
 
 - Provide Settings for System, Light, and Dark app themes. Reader-specific reading mode and page background controls become functional with the Reader; planned page background choices are Automatic, Light, Dark, and Woody.
+- Tab bar: active tab uses a filled, bold icon in the accent color and a short bounce on selection (skipped under Reduce Motion). This is a custom JS tab bar, not the native iOS tab bar, so it does not adopt Liquid Glass automatically.
+- Selection in lists is shown with icons (leading option icon, trailing check), not text labels; back buttons are icon-only.
 - Provide About and Share actions when their content is ready. Terms & Conditions requires approved text, and Rate us requires a store listing destination.
 - Use a clean, restrained interface following an approximate 60/30/10 distribution:
-  - 60% canvas/background: `#EAE8E5`
-  - 30% surfaces and secondary areas: `#DEC8B5`
-  - 10% accent and selected states: `#9D683B`
-  - text and high-contrast controls: `#000000`
+  - 60% canvas/background: light `#F3F0EB`, dark `#1A1714`
+  - 30% surfaces and secondary areas: light `#EAE3DA`, dark `#26221E`
+  - 10% accent, selected states, and active icons: light `#A3714A`, dark `#D9A77E`
+  - text: light `#1F1B17`, dark `#F1ECE6`; a soft, warm palette rather than pure black or white
 - Centralize semantic tokens; raw palette values may appear only in the theme definition (`src/theme/tokens.ts`) and its Uniwind mirror in `src/global.css`, which a unit test keeps identical.
 - Follow React Native Reusables component patterns implemented with Uniwind/Tailwind CSS.
 - On iOS 26+, use Liquid Glass selectively for navigation and floating controls when runtime capability checks pass.

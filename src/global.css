@@ -5,24 +5,22 @@
 @layer theme {
   :root {
     @variant light {
-      --color-canvas: #eae8e5;
-      --color-surface: #dec8b5;
-      --color-accent: #9d683b;
-      --color-on-accent: #ffffff;
-      --color-text: #000000;
-      --color-muted-text: #4a4038;
-      --color-separator: #b9a899;
+      --color-canvas: #f3f0eb;
+      --color-surface: #eae3da;
+      --color-accent: #a3714a;
+      --color-text: #1f1b17;
+      --color-muted-text: #5c5148;
+      --color-separator: #d9cfc3;
       --color-destructive: #b3261e;
     }
     @variant dark {
-      --color-canvas: #16130f;
-      --color-surface: #2a211a;
-      --color-accent: #d9a473;
-      --color-on-accent: #000000;
-      --color-text: #f5f0ea;
-      --color-muted-text: #b9ada1;
-      --color-separator: #5a4c40;
-      --color-destructive: #ff8a80;
+      --color-canvas: #1a1714;
+      --color-surface: #26221e;
+      --color-accent: #d9a77e;
+      --color-text: #f1ece6;
+      --color-muted-text: #b5aaa0;
+      --color-separator: #3a342e;
+      --color-destructive: #ff9a90;
     }
   }
 }

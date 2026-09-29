@@ -1,29 +1,49 @@
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { Tabs } from 'expo-router';
 
-import { useAppTheme } from '@/theme/theme-provider';
+import { type TabBarItem, TabBarView } from './tab-bar';
+
+const TABS: TabBarItem[] = [
+  {
+    key: 'index',
+    label: 'Library',
+    icon: {
+      inactive: { ios: 'books.vertical', android: 'library_books', web: 'library_books' },
+      active: { ios: 'books.vertical.fill', android: 'library_books', web: 'library_books' },
+    },
+  },
+  {
+    key: 'favorites',
+    label: 'Favorites',
+    icon: {
+      inactive: { ios: 'heart', android: 'favorite', web: 'favorite' },
+      active: { ios: 'heart.fill', android: 'favorite', web: 'favorite' },
+    },
+  },
+  {
+    key: 'settings',
+    label: 'Settings',
+    icon: {
+      inactive: { ios: 'gearshape', android: 'settings', web: 'settings' },
+      active: { ios: 'gearshape.fill', android: 'settings', web: 'settings' },
+    },
+  },
+];
 
 export default function AppTabs() {
-  const { tokens } = useAppTheme();
-
   return (
-    <NativeTabs
-      backgroundColor={tokens.canvas}
-      indicatorColor={tokens.surface}
-      tintColor={tokens.accent}
-      labelStyle={{ default: { color: tokens.mutedText }, selected: { color: tokens.text } }}
+    <Tabs
+      screenOptions={{ headerShown: false }}
+      tabBar={({ state, navigation }) => (
+        <TabBarView
+          items={TABS}
+          activeKey={state.routes[state.index]?.name ?? 'index'}
+          onSelect={(key) => navigation.navigate(key)}
+        />
+      )}
     >
-      <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>Library</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="books.vertical" md="library_books" />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="favorites">
-        <NativeTabs.Trigger.Label>Favorites</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="heart" md="favorite" />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="settings">
-        <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="gearshape" md="settings" />
-      </NativeTabs.Trigger>
-    </NativeTabs>
+      {TABS.map((tab) => (
+        <Tabs.Screen key={tab.key} name={tab.key} options={{ title: tab.label }} />
+      ))}
+    </Tabs>
   );
 }

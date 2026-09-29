@@ -1,3 +1,4 @@
+import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { type ThemePreference, themePreferences } from '@/theme/theme-preference';
@@ -9,8 +10,14 @@ export const THEME_LABELS: Record<ThemePreference, string> = {
   dark: 'Dark',
 };
 
+const THEME_ICONS: Record<ThemePreference, SymbolViewProps['name']> = {
+  system: { ios: 'circle.lefthalf.filled', android: 'brightness_medium', web: 'brightness_medium' },
+  light: { ios: 'sun.max', android: 'light_mode', web: 'light_mode' },
+  dark: { ios: 'moon', android: 'dark_mode', web: 'dark_mode' },
+};
+
 export function AppearanceScreen() {
-  const { preference, setPreference, saveError } = useAppTheme();
+  const { preference, setPreference, saveError, tokens } = useAppTheme();
 
   return (
     <ScrollView className="flex-1 bg-canvas" contentInsetAdjustmentBehavior="automatic">
@@ -25,16 +32,26 @@ export function AppearanceScreen() {
                 accessibilityLabel={THEME_LABELS[option]}
                 accessibilityState={{ selected, checked: selected }}
                 onPress={() => setPreference(option)}
-                className={`min-h-11 flex-row items-center justify-between px-4 ${
+                className={`min-h-11 flex-row items-center gap-3 px-4 ${
                   index > 0 ? 'border-t border-separator' : ''
-                } ${selected ? 'bg-accent' : ''}`}
+                }`}
               >
-                <Text
-                  className={`text-base ${selected ? 'font-semibold text-on-accent' : 'text-text'}`}
-                >
+                <SymbolView
+                  name={THEME_ICONS[option]}
+                  tintColor={selected ? tokens.accent : tokens.mutedText}
+                  size={22}
+                />
+                <Text className={`flex-1 text-base ${selected ? 'font-semibold' : ''} text-text`}>
                   {THEME_LABELS[option]}
                 </Text>
-                {selected ? <Text className="text-base text-on-accent">Selected</Text> : null}
+                {selected ? (
+                  <SymbolView
+                    name={{ ios: 'checkmark', android: 'check', web: 'check' }}
+                    weight="bold"
+                    tintColor={tokens.accent}
+                    size={18}
+                  />
+                ) : null}
               </Pressable>
             );
           })}

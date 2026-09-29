@@ -23,6 +23,12 @@ describe('Appearance theme choice', () => {
     expect(selected('Dark')).toBe(false);
   });
 
+  it('shows the selection with an icon instead of text', async () => {
+    await renderSettings(createInMemoryPreferenceStore('dark'));
+    await waitFor(() => expect(selected('Dark')).toBe(true));
+    expect(screen.queryByText('Selected')).toBeNull();
+  });
+
   it('marks the saved choice as selected after relaunch', async () => {
     await renderSettings(createInMemoryPreferenceStore('dark'));
     await waitFor(() => expect(selected('Dark')).toBe(true));

@@ -24,14 +24,14 @@ describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
     ['text', 'surface'],
     ['mutedText', 'canvas'],
     ['mutedText', 'surface'],
-    ['onAccent', 'accent'],
     ['destructive', 'canvas'],
+    ['destructive', 'surface'],
   ] as const)('%s on %s meets 4.5:1 text contrast', (fg, bg) => {
     expect(contrast(t[fg], t[bg])).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('keeps the accent distinguishable from the canvas at 3:1', () => {
-    expect(contrast(t.accent, t.canvas)).toBeGreaterThanOrEqual(3);
+  it.each(['canvas', 'surface'] as const)('keeps the accent visible on %s at 3:1', (bg) => {
+    expect(contrast(t.accent, t[bg])).toBeGreaterThanOrEqual(3);
   });
 });
 

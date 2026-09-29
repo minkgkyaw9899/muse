@@ -6,7 +6,16 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!!.agents", "!!.claude", "!!.expo", "!!assets", "!!dist", "!!web-build"],
+    "includes": [
+      "**",
+      "!!.agents",
+      "!!.claude",
+      "!!.expo",
+      "!!assets",
+      "!!dist",
+      "!!web-build",
+      "!!src/uniwind-types.d.ts"
+    ],
     "ignoreUnknown": true
   },
   "formatter": {
