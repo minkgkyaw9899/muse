@@ -42,7 +42,7 @@ function GlassTabs() {
   return (
     <NativeTabs
       tintColor={tokens.accent}
-      labelStyle={{ default: { color: tokens.mutedText }, selected: { color: tokens.accent } }}
+      labelStyle={{ default: { color: tokens.mutedText }, selected: { color: tokens.text } }}
     >
       {TABS.map((tab) => (
         <NativeTabs.Trigger key={tab.key} name={tab.key}>

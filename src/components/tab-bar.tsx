@@ -88,7 +88,7 @@ export function TabBarView({
             className="min-h-14 flex-1 items-center justify-center gap-1 py-1"
           >
             <TabIcon item={item} active={active} />
-            <Text className={`text-sm ${active ? 'font-semibold text-accent' : 'text-muted-text'}`}>
+            <Text className={`text-sm ${active ? 'font-semibold text-text' : 'text-muted-text'}`}>
               {item.label}
             </Text>
           </Pressable>

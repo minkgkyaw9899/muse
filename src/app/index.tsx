@@ -1,5 +1,5 @@
-import { PlaceholderScreen } from '@/screens/placeholder-screen';
+import { LibraryScreen } from '@/screens/library-screen';
 
 export default function LibraryRoute() {
-  return <PlaceholderScreen title="Library" body="Imported publications will appear here." />;
+  return <LibraryScreen />;
 }

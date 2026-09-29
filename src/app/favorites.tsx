@@ -1,5 +1,5 @@
-import { PlaceholderScreen } from '@/screens/placeholder-screen';
+import { FavoritesScreen } from '@/screens/favorites-screen';
 
 export default function FavoritesRoute() {
-  return <PlaceholderScreen title="Favorites" body="Publications you favorite will appear here." />;
+  return <FavoritesScreen />;
 }
