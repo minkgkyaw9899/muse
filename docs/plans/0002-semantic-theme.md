@@ -65,3 +65,4 @@ The preference is reversible and defaults to System. CSS and native navigation c
 - Persistence uses `expo-sqlite/kv-store` (no new package). `src/global.css` mirrors `src/theme/tokens.ts`; a unit test fails on drift.
 - Not yet verified on a device or simulator: relaunch persistence and native tab colors. The "choice survives relaunch and colors tabs" criterion stays open until then.
 - Review follow-ups: saves are sequenced so only the latest can revert the UI. The `biome.json` override disables `noDuplicateCustomProperties` for `src/global.css` only, because `@variant` blocks redeclare each token. Dark palette values, `onAccent`, and `destructive` are new design decisions to confirm with the product owner. Splash and app icon colors are untouched (out of scope).
+- Settings is a list; Appearance is a separate pushed screen (`src/app/settings/` stack). Verified on the iOS 26.5 simulator, including persistence across a kill and relaunch.

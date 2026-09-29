@@ -1,12 +1,12 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { SettingsScreen } from '@/screens/settings-screen';
+import { AppearanceScreen } from '@/screens/appearance-screen';
 import { createInMemoryPreferenceStore } from '@/testing/in-memory-preference-store';
 import { ThemeProvider } from '@/theme/theme-provider';
 
 async function renderSettings(store = createInMemoryPreferenceStore()) {
   await render(
     <ThemeProvider store={store}>
-      <SettingsScreen />
+      <AppearanceScreen />
     </ThemeProvider>,
   );
   return store;
@@ -15,7 +15,7 @@ async function renderSettings(store = createInMemoryPreferenceStore()) {
 const selected = (name: string) =>
   screen.getByRole('radio', { name }).props.accessibilityState.selected;
 
-describe('Settings theme choice', () => {
+describe('Appearance theme choice', () => {
   it('offers System, Light and Dark with System selected by default', async () => {
     await renderSettings();
     await waitFor(() => expect(selected('System')).toBe(true));
@@ -45,7 +45,7 @@ describe('Settings theme choice', () => {
   });
 });
 
-describe('Settings theme choice, rapid taps', () => {
+describe('Appearance theme choice, rapid taps', () => {
   it('lets the latest choice win when an earlier save fails', async () => {
     let failFirst = true;
     const store = createInMemoryPreferenceStore('system');
