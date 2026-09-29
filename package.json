@@ -47,9 +47,11 @@
     "@types/react": "~19.2.2",
     "jest": "~29.7.0",
     "jest-expo": "~57.0.5",
+    "lefthook": "^2.1.14",
     "typescript": "~6.0.3"
   },
   "scripts": {
+    "postinstall": "lefthook install",
     "start": "expo start --dev-client",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
@@ -65,7 +67,7 @@
     "test:integration": "jest --runInBand --no-watchman --testPathPattern=/tests/integration/",
     "test:ui": "jest --runInBand --no-watchman --testPathPattern=/tests/ui/",
     "test:e2e": "maestro test .maestro",
-    "validate": "bun run lint && bun run typecheck && bun run test && bun run check"
+    "validate": "bun run typecheck && bun run test && bun run check"
   },
   "jest": {
     "preset": "jest-expo",

@@ -16,6 +16,7 @@ Make Jest, React Native Testing Library, and Maestro the project test stack. Rec
 2. Add an iOS simulator smoke flow for the current app and a GitHub Actions native build and Maestro workflow.
 3. Provide local commands and CI triggers for the three test layers.
 4. Document branch creation, PR targets, release flow, and worktree cleanup in `AGENTS.md` and contributor docs.
+5. Install Lefthook for staged Biome fixes and whitespace checks before commit, then run full validation before push. Keep CI validation as the remote merge gate and remove duplicate Biome work from the combined command.
 
 ## Validation
 
@@ -24,6 +25,7 @@ Make Jest, React Native Testing Library, and Maestro the project test stack. Rec
 - EAS validates the changed JavaScript workflow with server-side validation.
 - The Maestro flow passes on an installed iOS 26.5 simulator using a local Xcode 27 Release build. The iOS 27 simulator fails to start Maestro's XCUITest driver; CI therefore uses an iOS 26.5 simulator.
 - Review the diff and prepare a PR from `feature/testing_workflow` to `develop`.
+- Lefthook 2.1.14 configuration validates, and its MIT license is compatible with development tooling. It runs under Bun without changing Expo SDK interfaces.
 
 ## Constraints
 

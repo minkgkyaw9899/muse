@@ -2,6 +2,8 @@
 
 `bun run validate` runs Biome, TypeScript, and all JavaScript test suites. It is the local gate before a feature PR.
 
+Lefthook runs Biome on staged JavaScript, TypeScript, JSON, and CSS before each commit, then runs `bun run validate` before a push. `bun install --frozen-lockfile` installs the hooks. CI runs the same validation once as the remote merge gate; the separate `bun run lint` command remains available for the feature loop.
+
 | Layer | Command | Location | Boundary |
 | --- | --- | --- | --- |
 | Unit | `bun run test:unit` | `tests/unit/` | Exported domain or utility behavior |
