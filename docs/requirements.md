@@ -18,6 +18,15 @@ Muse is a private, ad-free, offline-first reading app whose primary advantage is
 ### Library
 
 - Import one or multiple PDF files from system document providers.
+- Use a three-tab shell: Library, Favorites, and Settings. The Library is the first tab.
+- Show up to three recently opened publications, ordered by last-opened date; never-opened imports do not appear in Recent.
+- Show all publications in a compact list with title, page count, and last-opened or import date. Each row opens the publication when the Reader is available and has a menu for rename, favorite/unfavorite, and removal.
+- Filter Library publications by displayed title as the reader types, ignoring capitalization.
+- Sort the Library by recently opened, recently imported, title A–Z, or title Z–A, with reverse order where useful. Recently imported uses import date; recently opened uses last-opened date.
+- Rename only the displayed title; leave the owned PDF filename unchanged.
+- Support multi-selection, Select all for the currently visible filtered list, and removal with a confirmation that states the number of publications affected.
+- Provide a Favorites tab with the same compact rows, title search, opening, and unfavorite actions. A favorite marks a publication, not a page bookmark.
+- Make the primary Library action open the system Files picker for multiple PDFs, with visible progress and per-file duplicate or failure results.
 - Store title, source filename, byte size, page count, import date, last-opened date, reading position, and a stable content fingerprint.
 - Show import, validation, duplicate, missing-file, corrupt-file, encrypted-file, and unsupported-file states.
 - Remove a publication and its derived cache without affecting other publications.
@@ -36,12 +45,14 @@ Muse is a private, ad-free, offline-first reading app whose primary advantage is
 
 ### Appearance
 
+- Provide Settings for System, Light, and Dark app themes. Reader-specific reading mode and page background controls become functional with the Reader; planned page background choices are Automatic, Light, Dark, and Woody.
+- Provide About and Share actions when their content is ready. Terms & Conditions requires approved text, and Rate us requires a store listing destination.
 - Use a clean, restrained interface following an approximate 60/30/10 distribution:
   - 60% canvas/background: `#EAE8E5`
   - 30% surfaces and secondary areas: `#DEC8B5`
   - 10% accent and selected states: `#9D683B`
   - text and high-contrast controls: `#000000`
-- Centralize semantic tokens; raw palette values may appear only in the theme definition.
+- Centralize semantic tokens; raw palette values may appear only in the theme definition (`src/theme/tokens.ts`) and its Uniwind mirror in `src/global.css`, which a unit test keeps identical.
 - Follow React Native Reusables component patterns implemented with Uniwind/Tailwind CSS.
 - On iOS 26+, use Liquid Glass selectively for navigation and floating controls when runtime capability checks pass.
 - On iOS below 26 and unsupported environments, render an intentional opaque/translucent fallback with identical behavior and accessibility.
@@ -84,6 +95,13 @@ Initial targets, to be calibrated after the native spike:
 5. Continuous mode, bookmarks, and text search.
 6. Liquid Glass/fallback design system, accessibility, and performance hardening.
 7. Store readiness, licensing evidence, privacy manifest, crash recovery, and release automation.
+
+## Release channels
+
+- Beta builds and prereleases come from `develop`; stable releases come from `main`.
+- Public versions use three numeric parts, `MAJOR.MINOR.PATCH`. Beta tags add a prerelease suffix, such as `vMAJOR.MINOR.PATCH-beta.N`; stable tags use `vMAJOR.MINOR.PATCH`.
+- Publish GitHub Releases only when the corresponding branch is validated and release-ready. Do not infer a release version from the current starter package version.
+- The Beta (develop) and Stable (main) GitHub Project views track work for each channel. MuPDF distribution still requires the accepted licensing path in ADR 0001.
 
 ## Definition of done
 

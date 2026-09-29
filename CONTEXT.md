@@ -12,6 +12,10 @@ _Avoid_: Book, document, item
 The user's collection of imported publications and their reading metadata.
 _Avoid_: Bookshelf, catalog, database
 
+**Favorite**:
+A publication the reader has marked for quick access in the Favorites collection. It is distinct from a bookmark, which marks a page within a publication.
+_Avoid_: Favorite bookmark, starred page
+
 **Reading position**:
 The last stable location a reader reached in a publication, represented by page index and viewport state where applicable.
 _Avoid_: Progress, current page

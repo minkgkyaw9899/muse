@@ -12,6 +12,8 @@ Before planning or implementing any feature, read all three documents:
 
 Read `CONTEXT.md` whenever naming domain concepts. Read relevant ADRs in `docs/adr/` before changing an architectural decision.
 
+For work tracked in GitHub, read `docs/agents/issue-tracker.md` before creating, starting, or completing a ticket.
+
 For every feature, use the relevant project-installed Matt Pocock skills. At minimum:
 
 - use `codebase-design` when introducing or changing a module interface or seam;
@@ -26,19 +28,21 @@ Use relevant Expo skills for Expo Router, native modules, EAS, UI, or SDK work.
 
 Every feature follows this loop. Record the implementation plan using `docs/implementation-plan-template.md` before editing production code.
 
-1. Read the required context.
-2. Define the user-visible slice, public module seam, acceptance criteria, and performance risk.
-3. Write one failing behavior test at an agreed seam.
-4. Implement the smallest complete vertical slice that makes it pass.
-5. Run `bun run lint`.
-6. Run `bun run typecheck`.
-7. Run `bun run test:unit`.
-8. Run `bun run test:integration`.
-9. Fix failures and repeat from the smallest failing check.
-10. Run `bun run validate`.
-11. Review the entire diff for correctness, scope, accessibility, performance, and security.
-12. Update affected requirements, architecture, ADRs, and operational notes.
-13. Prepare a focused PR; do not push or open it unless requested.
+1. Start from an unblocked GitHub ticket, creating one when needed; mark it in progress.
+2. Read the required context.
+3. Define the user-visible slice, public module seam, acceptance criteria, and performance risk.
+4. Write one failing behavior test at an agreed seam.
+5. Implement the smallest complete vertical slice that makes it pass.
+6. Run `bun run lint`.
+7. Run `bun run typecheck`.
+8. Run `bun run test:unit`.
+9. Run `bun run test:integration`.
+10. Fix failures and repeat from the smallest failing check.
+11. Run `bun run validate`.
+12. Review the entire diff for correctness, scope, accessibility, performance, and security.
+13. Update affected requirements, architecture, ADRs, and operational notes.
+14. Prepare a focused PR; do not push or open it unless requested. Link it from the ticket when opened.
+15. After the PR is merged and acceptance criteria pass, close the ticket and update the GitHub Project. If no PR is opened, leave the ticket open with an accurate progress note.
 
 Never mark work complete while a required validation command fails. Do not weaken, skip, or delete a test merely to make validation pass.
 
