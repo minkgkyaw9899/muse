@@ -80,11 +80,13 @@ int main(int argc, char **argv) {
   double rss_mb = (after.ru_maxrss - before.ru_maxrss) / (1024.0 * 1024.0);
 
   const char *outcome = result.ok ? "ok" : result.code;
+  char fingerprint[16] = "-";
+  if (result.ok) snprintf(fingerprint, sizeof fingerprint, "%.12s", result.fingerprint);
   const char *check = "";
   if (result.ok && expected_pages >= 0 && result.page_count != expected_pages) check = " MISMATCH";
 
-  printf("| %s | %.1f | %d%s | %s | %.1f | %.1f | %.1f | %.1f | %.1f |\n", strrchr(path, '/') ? strrchr(path, '/') + 1 : path,
+  printf("| %s | %.1f | %d%s | %s | %.1f | %.1f | %.1f | %.1f | %.1f | %s |\n", strrchr(path, '/') ? strrchr(path, '/') + 1 : path,
          st.st_size / (1024.0 * 1024.0), result.ok ? result.page_count : 0, check, outcome, cold,
-         warm, hash, open, rss_mb);
+         warm, hash, open, rss_mb, fingerprint);
   return 0;
 }

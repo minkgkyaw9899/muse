@@ -8,26 +8,26 @@ Evidence for the native inspection seam: how long `DocumentRenderer.inspect` tak
 - **Cold** is the first inspection in a fresh process. The operating system file cache is **not** purged (that needs `sudo`), so cold measures process and MuPDF start-up, not disk reads.
 - **Hash only** times the same read-and-SHA-256 loop without MuPDF. **Open + count** is warm median minus hash only (derived, so it can read 0.0 when hashing dominates).
 - Peak RSS growth is `ru_maxrss` after minus before, in the benchmark process.
-- Page counts were checked against MuPDF's own `mutool info`.
+- Page counts were checked against MuPDF's own `mutool info`. Generated fixtures are deterministic (pseudo-random image bytes from SHA-256 in counter mode), so the fingerprint column is stable across regenerations.
 
 ## Environment
 
 - Date: 2026-09-29
 - Machine: Apple M4, 16 GB RAM, macOS 27.0 (host Mac; **not** a physical iPhone and not the iOS simulator process)
-- MuPDF 1.28.5, release build, trimmed fonts (see below), commit `f13d890` plus the slice 8 scripts
+- MuPDF 1.28.5, release build, trimmed fonts (see below); measured at the commit that adds the review fixes to slice 8
 
 ## Results
 
-| Fixture | Size (MB) | Pages | Outcome | Cold (ms) | Warm median (ms) | Hash only (ms) | Open + count, derived (ms) | Peak RSS growth (MB) |
-| --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: |
-| valid-2-pages.pdf | 0.0 | 2 | ok | 1.9 | 0.3 | 0.0 | 0.3 | 2.3 |
-| encrypted.pdf | 0.0 | 0 | pdf_encrypted | 11.1 | 10.5 | 0.0 | 10.5 | 2.4 |
-| corrupt-header-only.pdf | 0.0 | 0 | pdf_corrupt | 1.3 | 0.3 | 0.0 | 0.3 | 2.2 |
-| pages-1k.pdf | 0.1 | 1000 | ok | 1.0 | 0.4 | 0.0 | 0.3 | 2.4 |
-| pages-10k.pdf | 1.0 | 10000 | ok | 2.0 | 0.9 | 0.4 | 0.5 | 2.8 |
-| pages-100k.pdf | 10.0 | 100000 | ok | 12.3 | 6.4 | 3.9 | 2.5 | 6.6 |
-| scan-100p-150mb.pdf | 143.1 | 100 | ok | 87.8 | 59.1 | 58.9 | 0.2 | 2.4 |
-| truncated-100k.pdf | 5.0 | 0 | pdf_corrupt | 49.0 | 45.4 | 2.0 | 43.4 | 6.4 |
+| Fixture | Size (MB) | Pages | Outcome | Cold (ms) | Warm median (ms) | Hash only (ms) | Open + count, derived (ms) | Peak RSS growth (MB) | Fingerprint (first 12) |
+| --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| valid-2-pages.pdf | 0.0 | 2 | ok | 3.3 | 0.6 | 0.0 | 0.6 | 2.3 | fe29a275f5a0 |
+| encrypted.pdf | 0.0 | 0 | pdf_encrypted | 18.9 | 10.8 | 0.0 | 10.7 | 2.4 | - |
+| corrupt-header-only.pdf | 0.0 | 0 | pdf_corrupt | 1.8 | 0.3 | 0.0 | 0.3 | 2.2 | - |
+| pages-1k.pdf | 0.1 | 1000 | ok | 0.6 | 0.3 | 0.0 | 0.3 | 2.4 | c757baaca36e |
+| pages-10k.pdf | 1.0 | 10000 | ok | 1.1 | 0.8 | 0.3 | 0.4 | 2.8 | e7dd24c03f5c |
+| pages-100k.pdf | 10.0 | 100000 | ok | 6.5 | 5.7 | 3.4 | 2.3 | 6.6 | af0098e30493 |
+| scan-100p-150mb.pdf | 143.1 | 100 | ok | 53.5 | 53.6 | 52.8 | 0.8 | 2.4 | 51896b675ac8 |
+| truncated-100k.pdf | 5.0 | 0 | pdf_corrupt | 51.0 | 44.6 | 1.9 | 42.8 | 6.4 | - |
 
 | Fixture | What it is |
 | --- | --- |
@@ -40,11 +40,11 @@ Evidence for the native inspection seam: how long `DocumentRenderer.inspect` tak
 
 ## Findings
 
-- **Page count barely matters; file size does.** 100,000 pages inspect in about 6 ms warm and 12 ms cold. Open plus count grows with the cross-reference table (0.3 ms at 1,000 pages, 0.5 ms at 10,000, 2.5 ms at 100,000), which is small in absolute terms. The 143 MB scan is 100 pages but takes about 59 ms, all of it hashing at roughly 2.4 GB/s. The requirement "opening cost scales with the first viewport, not page count" holds for the metadata read; the fingerprint is proportional to file bytes and is the dominant cost for large files.
+- **Page count barely matters; file size does.** 100,000 pages inspect in about 6 ms warm and 7 ms cold. Open plus count grows with the cross-reference table (0.3 ms at 1,000 pages, 0.5 ms at 10,000, 2.3 ms at 100,000), which is small in absolute terms. The 143 MB scan is 100 pages but takes about 54 ms, nearly all of it hashing at roughly 2.7 GB/s. The requirement "opening cost scales with the first viewport, not page count" holds for the metadata read; the fingerprint is proportional to file bytes and is the dominant cost for large files.
 - **Memory is bounded.** Peak RSS growth stayed under 7 MB for every fixture, including the 143 MB file (streaming hash, 64 KB buffer) and the 100,000-page document. 1,200 repeated inspections across success, failure, and cancellation showed no growth and no leaks (`bun run test:native`).
-- **Damaged files cost more.** A file that needs MuPDF's repair scan (truncated-100k, 5 MB) takes about 45 ms, versus 6 ms for the intact 10 MB file. Repair time scales with file size; it is bounded by the byte limit and cancellable between reads but not during a single parse.
+- **Damaged files cost more.** A file that needs MuPDF's repair scan (truncated-100k, 5 MB) takes about 45 ms, versus 6 ms for the intact 10 MB file. Repair runs inside MuPDF's open call, so it is bounded by the byte limit but is **not** cancellable: a cancel issued during a repair takes effect when it returns.
 - **Encrypted files pay a key-derivation cost.** About 10 ms for the AES-256 fixture, independent of file size.
-- **Worst-case cancel latency:** a running 1 GB inspection returns `cancelled` within 250 ms of the cancel (host test assertion). A cancel during one MuPDF parse takes effect when the parse returns.
+- **Cancel latency (bound, not a measurement).** A host test asserts that a running inspection of a 1 GB sparse file returns `cancelled` within 250 ms of the cancel; the assertion catches regressions but the 250 ms figure is a chosen bound, not a measured worst case. Cancels are honored between 64 KB reads and around the MuPDF open, not during it.
 - **Linked size (the important cost).** An inspection-only binary (macOS arm64, `-dead_strip`, stripped) was **38.1 MB** with MuPDF's default bundled fonts, of which about 36 MB was embedded font data (`__const`) and 2.9 MB was code. Building MuPDF with `-DTOFU -DTOFU_CJK -DTOFU_EMOJI -DTOFU_HISTORIC -DTOFU_SYMBOL -DTOFU_SIL` (drops the bundled Noto fonts, keeps the base-14 fonts) gives **6.1 MB**, about 6 times smaller, and the iOS xcframework drops from 124 MB to 34 MB (static libraries, before linking). Inspection needs no fonts, so the build now uses the trimmed flags by default (`scripts/mupdf-config.sh`). The Reader will need to revisit this when it renders text: choose which fallback fonts to ship or supply system fonts through MuPDF's font callback.
 
 - **Simulator check with the trimmed build.** The iOS 26.5 simulator development build, linked against the trimmed 34 MB framework, returned the same results through the real adapter as before trimming: valid PDF 2 pages with the expected fingerprint, encrypted `passwordRequired`, truncated `corrupt`, an immediate cancel `cancelled`, and 8 concurrent inspections all `ok`.

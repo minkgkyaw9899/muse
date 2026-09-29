@@ -6,7 +6,8 @@
  *   scan-100p-150mb                     100 pages, each with a 1.5 MB image stream (size dominates)
  *   truncated-100k                      pages-100k cut in half: forces MuPDF's repair scan
  */
-import { randomBytes } from 'node:crypto';
+/// <reference types="node" />
+import { createHash } from 'node:crypto';
 import {
   closeSync,
   copyFileSync,
@@ -124,6 +125,17 @@ function emptyPages(path: string, pageCount: number) {
   w.finish(plan.next);
 }
 
+/** Reproducible pseudo-random bytes (SHA-256 in counter mode), so fixture fingerprints are stable. */
+function deterministicBytes(seed: number, length: number): Buffer {
+  const out = Buffer.alloc(length);
+  for (let offset = 0, counter = 0; offset < length; counter++) {
+    const block = createHash('sha256').update(`muse-fixture-${seed}-${counter}`).digest();
+    block.copy(out, offset, 0, Math.min(block.length, length - offset));
+    offset += block.length;
+  }
+  return out;
+}
+
 function scan(path: string, pageCount: number, bytesPerImage: number) {
   const w = new PdfWriter(path);
   const plan = planTree(pageCount);
@@ -136,11 +148,11 @@ function scan(path: string, pageCount: number, bytesPerImage: number) {
       `<</Type/Page/Parent ${parent} 0 R/MediaBox[0 0 612 792]/Resources<</XObject<</Im0 ${firstImage + i} 0 R>>>>>>`,
   );
   for (let i = 0; i < pageCount; i++) {
-    // Inspection never decodes images; random bytes stand in for scanned image data.
+    // Inspection never decodes images; pseudo-random bytes stand in for scanned image data.
     w.stream(
       firstImage + i,
       '/Type/XObject/Subtype/Image/Width 1700/Height 2200/ColorSpace/DeviceGray/BitsPerComponent 8/Filter/DCTDecode',
-      randomBytes(bytesPerImage),
+      deterministicBytes(i, bytesPerImage),
     );
   }
   w.finish(firstImage + pageCount);

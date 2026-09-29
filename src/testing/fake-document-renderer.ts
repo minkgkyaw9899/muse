@@ -1,26 +1,15 @@
-import type { DocumentRenderer, InspectionResult, RendererError } from '@/domain/document-renderer';
+import type { DocumentRenderer, InspectionResult } from '@/domain/document-renderer';
+import { rendererError } from '@/domain/renderer-errors';
 
 type FakeFile =
   | { kind: 'valid'; bytes: number; pageCount: number; fingerprint: string; slow?: boolean }
   | { kind: 'corrupt' | 'encrypted' | 'unsupported'; bytes: number };
 
-const FAILURES: Record<'corrupt' | 'encrypted' | 'unsupported', RendererError> = {
-  corrupt: {
-    category: 'corrupt',
-    code: 'fake_corrupt',
-    message: 'This file is damaged and cannot be read.',
-  },
-  encrypted: {
-    category: 'passwordRequired',
-    code: 'fake_encrypted',
-    message: 'This file is password protected.',
-  },
-  unsupported: {
-    category: 'unsupported',
-    code: 'fake_unsupported',
-    message: 'This file is not a PDF that Muse can read.',
-  },
-};
+const FAILURE_CODES = {
+  corrupt: 'pdf_corrupt',
+  encrypted: 'pdf_encrypted',
+  unsupported: 'pdf_unsupported',
+} as const;
 
 export function createFakeDocumentRenderer() {
   const fixtures = {
@@ -49,26 +38,13 @@ export function createFakeDocumentRenderer() {
     async inspect({ uri, operationId, limits }): Promise<InspectionResult> {
       const file = files.get(uri);
       if (!file) {
-        return {
-          ok: false,
-          error: {
-            category: 'internal',
-            code: 'file_missing',
-            message: 'Muse could not find this file. Try importing it again.',
-          },
-        };
+        return { ok: false, error: rendererError('file_missing') };
       }
       if (limits?.maxBytes !== undefined && file.bytes > limits.maxBytes) {
-        return {
-          ok: false,
-          error: {
-            category: 'resourceLimit',
-            code: 'fake_too_large',
-            message: 'This file is too large to open safely.',
-          },
-        };
+        return { ok: false, error: rendererError('file_too_large') };
       }
-      if (file.kind !== 'valid') return { ok: false, error: FAILURES[file.kind] };
+      if (file.kind !== 'valid')
+        return { ok: false, error: rendererError(FAILURE_CODES[file.kind]) };
       if (file.slow) {
         const outcome = await new Promise<'done' | 'cancelled'>((resolve) => {
           const timer = setTimeout(() => resolve('done'), 50);
@@ -79,14 +55,7 @@ export function createFakeDocumentRenderer() {
         });
         running.delete(operationId);
         if (outcome === 'cancelled') {
-          return {
-            ok: false,
-            error: {
-              category: 'cancelled',
-              code: 'cancelled',
-              message: 'The operation was cancelled.',
-            },
-          };
+          return { ok: false, error: rendererError('cancelled') };
         }
       }
       return {

@@ -27,8 +27,8 @@ echo "- Machine: $(sysctl -n machdep.cpu.brand_string), $(( $(sysctl -n hw.memsi
 echo "- MuPDF: $VERSION (host build, release); commit $(git -C "$ROOT" rev-parse --short HEAD)"
 echo "- Runs: 1 cold + $RUNS warm per fixture, one process per fixture"
 echo
-echo "| Fixture | Size (MB) | Pages | Outcome | Cold (ms) | Warm median (ms) | Hash only (ms) | Open + count, derived (ms) | Peak RSS growth (MB) |"
-echo "| --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: |"
+echo "| Fixture | Size (MB) | Pages | Outcome | Cold (ms) | Warm median (ms) | Hash only (ms) | Open + count, derived (ms) | Peak RSS growth (MB) | Fingerprint (first 12) |"
+echo "| --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- |"
 run() { "$WORK/host-tests/bench" "$1" "$2" "$RUNS"; }
 run "$FIXTURES/valid-2-pages.pdf" 2
 run "$FIXTURES/encrypted.pdf" -1

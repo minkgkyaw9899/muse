@@ -1,9 +1,5 @@
-import type {
-  DocumentRenderer,
-  InspectionResult,
-  RendererError,
-  RendererErrorCategory,
-} from '@/domain/document-renderer';
+import type { DocumentRenderer, InspectionResult } from '@/domain/document-renderer';
+import { isRendererErrorCode, rendererError } from '@/domain/renderer-errors';
 
 /** What the local Expo module `mupdf-renderer` must expose. Replies are plain values, never thrown. */
 export type NativeRendererModule = {
@@ -11,40 +7,32 @@ export type NativeRendererModule = {
   cancel(operationId: string): void;
 };
 
-const KNOWN_CODES: Record<string, { category: RendererErrorCategory; message: string }> = {
-  pdf_corrupt: { category: 'corrupt', message: 'This file is damaged and cannot be read.' },
-  pdf_encrypted: { category: 'passwordRequired', message: 'This file is password protected.' },
-  pdf_unsupported: {
-    category: 'unsupported',
-    message: 'This file is not a PDF that Muse can read.',
-  },
-  file_too_large: { category: 'resourceLimit', message: 'This file is too large to open safely.' },
-  cancelled: { category: 'cancelled', message: 'The operation was cancelled.' },
-  file_missing: {
-    category: 'internal',
-    message: 'Muse could not find this file. Try importing it again.',
-  },
-  renderer_unavailable: {
-    category: 'internal',
-    message: 'Reading PDFs is not available in this build of Muse.',
-  },
-  io_error: { category: 'internal', message: 'Muse could not read this file. Please try again.' },
-};
+/** The native module rejects ids of 96 bytes or more; refuse them here so nothing is truncated. */
+const MAX_OPERATION_ID_LENGTH = 95;
 
 const SAFE_CODE = /^[a-z0-9_]{1,64}$/;
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 
-function internal(code: string): InspectionResult {
-  const error: RendererError = {
-    category: 'internal',
-    code,
-    message: 'Something went wrong while reading this file. Please try again.',
-  };
-  return { ok: false, error };
+/** Codes the native module may send; the adapter's own failure codes are excluded. */
+const NATIVE_CODES = new Set([
+  'pdf_corrupt',
+  'pdf_encrypted',
+  'pdf_unsupported',
+  'file_too_large',
+  'too_many_operations',
+  'cancelled',
+  'file_missing',
+  'io_error',
+  'renderer_unavailable',
+  'invalid_request',
+]);
+
+function failure(code: Parameters<typeof rendererError>[0]): InspectionResult {
+  return { ok: false, error: rendererError(code) };
 }
 
 function toResult(reply: unknown): InspectionResult {
-  if (typeof reply !== 'object' || reply === null) return internal('invalid_native_response');
+  if (typeof reply !== 'object' || reply === null) return failure('invalid_native_response');
   const value = reply as Record<string, unknown>;
 
   if (value.status === 'ok') {
@@ -58,18 +46,18 @@ function toResult(reply: unknown): InspectionResult {
     ) {
       return { ok: true, inspection: { pageCount, fingerprint } };
     }
-    return internal('invalid_native_response');
+    return failure('invalid_native_response');
   }
 
   if (value.status === 'error') {
     const code = value.code;
-    if (typeof code !== 'string' || !SAFE_CODE.test(code)) return internal('invalid_native_code');
-    const known = KNOWN_CODES[code];
-    if (!known) return internal('unmapped_native_code');
-    return { ok: false, error: { category: known.category, code, message: known.message } };
+    if (typeof code !== 'string' || !SAFE_CODE.test(code)) return failure('invalid_native_code');
+    if (!NATIVE_CODES.has(code) || !isRendererErrorCode(code))
+      return failure('unmapped_native_code');
+    return failure(code);
   }
 
-  return internal('invalid_native_response');
+  return failure('invalid_native_response');
 }
 
 /**
@@ -82,12 +70,18 @@ export function createNativeDocumentRenderer(native: NativeRendererModule): Docu
 
   return {
     async inspect({ uri, operationId, limits }) {
+      const maxBytes = limits?.maxBytes;
+      const validId = operationId.length > 0 && operationId.length <= MAX_OPERATION_ID_LENGTH;
+      const validLimit =
+        maxBytes === undefined || (Number.isSafeInteger(maxBytes) && maxBytes >= 0);
+      if (!validId || !validLimit || inFlight.has(operationId)) return failure('invalid_request');
+
       inFlight.add(operationId);
       try {
-        return toResult(await native.inspectAsync(uri, operationId, limits?.maxBytes ?? null));
+        return toResult(await native.inspectAsync(uri, operationId, maxBytes ?? null));
       } catch {
         // The thrown message may contain a path or content, so it is dropped.
-        return internal('native_exception');
+        return failure('native_exception');
       } finally {
         inFlight.delete(operationId);
       }

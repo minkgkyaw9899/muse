@@ -65,6 +65,8 @@ describe('native document renderer adapter', () => {
     ['pdf_unsupported', 'unsupported'],
     ['file_too_large', 'resourceLimit'],
     ['cancelled', 'cancelled'],
+    ['too_many_operations', 'resourceLimit'],
+    ['invalid_request', 'internal'],
     ['file_missing', 'internal'],
     ['io_error', 'internal'],
   ] as const)('maps the native code %s to the %s category', async (code, category) => {
@@ -124,6 +126,80 @@ describe('native document renderer adapter', () => {
     expect(result).toMatchObject({
       ok: false,
       error: { category: 'internal', code: 'invalid_native_response' },
+    });
+  });
+
+  describe('request validation', () => {
+    const rejected = {
+      ok: false,
+      error: { category: 'internal', code: 'invalid_request' },
+    };
+
+    it.each([[Number.NaN], [Number.POSITIVE_INFINITY], [-1], [1.5], [Number.MAX_SAFE_INTEGER + 2]])(
+      'rejects the byte limit %p without calling native code',
+      async (maxBytes) => {
+        const native = nativeModule({ status: 'ok', pageCount: 1, fingerprint: FINGERPRINT });
+        const renderer = createNativeDocumentRenderer(native);
+
+        const result = await renderer.inspect({
+          uri: 'file:///owned/a.pdf',
+          operationId: 'op-limit',
+          limits: { maxBytes },
+        });
+
+        expect(result).toMatchObject(rejected);
+        expect(native.inspectAsync).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([[''], ['x'.repeat(96)]])('rejects the operation id %p', async (operationId) => {
+      const native = nativeModule({ status: 'ok', pageCount: 1, fingerprint: FINGERPRINT });
+      const renderer = createNativeDocumentRenderer(native);
+
+      const result = await renderer.inspect({ uri: 'file:///owned/a.pdf', operationId });
+
+      expect(result).toMatchObject(rejected);
+      expect(native.inspectAsync).not.toHaveBeenCalled();
+    });
+
+    it('accepts a zero byte limit and the longest allowed id', async () => {
+      const native = nativeModule({ status: 'error', code: 'file_too_large' });
+      const renderer = createNativeDocumentRenderer(native);
+
+      await renderer.inspect({
+        uri: 'file:///owned/a.pdf',
+        operationId: 'x'.repeat(95),
+        limits: { maxBytes: 0 },
+      });
+
+      expect(native.inspectAsync).toHaveBeenCalledTimes(1);
+    });
+
+    it('refuses to reuse the id of an operation that is still running', async () => {
+      let finish: (reply: unknown) => void = () => {};
+      const native = {
+        inspectAsync: jest.fn().mockReturnValue(new Promise((resolve) => (finish = resolve))),
+        cancel: jest.fn(),
+      };
+      const renderer = createNativeDocumentRenderer(native);
+
+      const first = renderer.inspect({ uri: 'file:///owned/a.pdf', operationId: 'same' });
+      const second = await renderer.inspect({ uri: 'file:///owned/b.pdf', operationId: 'same' });
+      finish({ status: 'ok', pageCount: 1, fingerprint: FINGERPRINT });
+
+      expect(second).toMatchObject(rejected);
+      expect(native.inspectAsync).toHaveBeenCalledTimes(1);
+      expect(await first).toMatchObject({ ok: true });
+    });
+
+    it('allows an id to be reused once its operation has finished', async () => {
+      const native = nativeModule({ status: 'ok', pageCount: 1, fingerprint: FINGERPRINT });
+      const renderer = createNativeDocumentRenderer(native);
+
+      await renderer.inspect({ uri: 'file:///owned/a.pdf', operationId: 'again' });
+      const second = await renderer.inspect({ uri: 'file:///owned/a.pdf', operationId: 'again' });
+
+      expect(second).toMatchObject({ ok: true });
     });
   });
 });

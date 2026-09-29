@@ -1,19 +1,13 @@
 import { requireOptionalNativeModule } from 'expo';
 
 import type { DocumentRenderer } from '@/domain/document-renderer';
+import { rendererError } from '@/domain/renderer-errors';
 import {
   createNativeDocumentRenderer,
   type NativeRendererModule,
 } from './native-document-renderer';
 
-const UNAVAILABLE = {
-  ok: false,
-  error: {
-    category: 'internal',
-    code: 'renderer_unavailable',
-    message: 'Reading PDFs is not available in this build of Muse.',
-  },
-} as const;
+const UNAVAILABLE = { ok: false, error: rendererError('renderer_unavailable') } as const;
 
 /**
  * The renderer backed by the local `mupdf-renderer` Expo module. Builds that do not link the module

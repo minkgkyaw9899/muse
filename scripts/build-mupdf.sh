@@ -31,10 +31,13 @@ echo "$SHA256  $TARBALL" | shasum -a 256 --check --status || {
   exit 1
 }
 
+# Reuse an extracted tree only if it came from an archive with the pinned checksum.
 SRC="$WORK/src"
-if [ ! -d "$SRC" ]; then
+if [ ! -d "$SRC" ] || [ "$(cat "$SRC/.archive-sha256" 2>/dev/null)" != "$SHA256" ]; then
+  rm -rf "$SRC"
   mkdir -p "$SRC"
   tar xzf "$TARBALL" -C "$SRC" --strip-components=1
+  printf '%s' "$SHA256" > "$SRC/.archive-sha256"
 fi
 
 # The iOS SDK does not declare getentropy(); back it with the system CSPRNG. Upstream source stays untouched.

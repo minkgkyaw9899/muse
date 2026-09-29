@@ -28,4 +28,4 @@ Boot an iOS simulator before installing the app. The GitHub `iOS Maestro E2E` wo
 
 ## Native inspection benchmark
 
-`bun run bench:native` (macOS only) generates large fixtures under `.cache/fixtures` and prints latency and memory per fixture as a markdown table. Results are recorded in `docs/performance/`. The MuPDF build and the tests in `tests/unit/mupdf-gate.test.ts` keep MuPDF out of preview and production builds; see ADR 0001.
+`bun run bench:native` (macOS only) generates large fixtures under `.cache/fixtures` and prints latency and memory per fixture as a markdown table. Results are recorded in `docs/performance/`. The MuPDF build and the tests in `tests/integration/mupdf-gate.test.ts` keep MuPDF out of preview and production builds; see ADR 0001.

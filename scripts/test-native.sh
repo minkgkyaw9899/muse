@@ -15,7 +15,7 @@ OUT="$WORK/host-tests"
 FIXTURES="$ROOT/tests/fixtures/pdf"
 mkdir -p "$OUT"
 
-BASE=(-g -O1 -Wall -Wextra -I"$MODULE")
+BASE=(-g -O1 -Wall -Wextra -DMUSE_TESTING=1 -I"$MODULE")
 LIBS=()
 if [ "${MUSE_STUB:-0}" != "1" ]; then
   if [ ! -f "$WORK/host/libmupdf-all.a" ] || ! mupdf_stamp_matches "$WORK/host"; then

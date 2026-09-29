@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <unistd.h>
 
@@ -40,16 +41,20 @@ static double now_ms(void) {
 }
 
 /* A sparse file that starts like a PDF. Hashing it takes long enough to cancel or overlap. */
-static void make_big_file(char *path, size_t size, long long bytes) {
+static void make_sparse_file(char *path, size_t size, long long bytes, int with_pdf_header) {
   snprintf(path, size, "%s/muse-big-XXXXXX", getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp");
   int fd = mkstemp(path);
   if (fd < 0) { perror("mkstemp"); exit(2); }
-  const char *header = "%PDF-1.4\n";
+  const char *header = with_pdf_header ? "%PDF-1.4\n" : "plain text, not a PDF\n";
   if (write(fd, header, strlen(header)) < 0 || ftruncate(fd, bytes) != 0) {
     perror("prepare big file");
     exit(2);
   }
   close(fd);
+}
+
+static void make_big_file(char *path, size_t size, long long bytes) {
+  make_sparse_file(path, size, bytes, 1);
 }
 
 typedef struct {
@@ -266,12 +271,67 @@ static void test_stale_cancels_are_bounded(void) {
   CHECK(r.ok == 1, "the module keeps working after many unmatched cancels");
 }
 
+static void test_a_large_non_pdf_is_rejected_without_hashing_it(void) {
+  printf("a large non-PDF is rejected from its first bytes\n");
+  char big[1024];
+  make_sparse_file(big, sizeof big, BIG_BYTES, 0);
+  MuseInspection r;
+  double t0 = now_ms();
+  muse_inspect("non-pdf-big", big, -1, &r);
+  double elapsed = now_ms() - t0;
+  CHECK(strcmp(r.code, "pdf_unsupported") == 0, "reported as unsupported");
+  CHECK(elapsed < 100, "returns without reading the whole 1 GB");
+  unlink(big);
+}
+
+static void test_non_regular_files_are_rejected_without_blocking(void) {
+  printf("directories, devices, and pipes are rejected without blocking\n");
+  MuseInspection r;
+  muse_inspect("nr-dir", fixtures_dir, -1, &r);
+  CHECK(strcmp(r.code, "pdf_unsupported") == 0, "a directory is unsupported");
+  muse_inspect("nr-dev", "/dev/null", -1, &r);
+  CHECK(strcmp(r.code, "pdf_unsupported") == 0, "a device is unsupported");
+  char fifo[1024];
+  snprintf(fifo, sizeof fifo, "%s/muse-fifo-%d", getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp", (int)getpid());
+  if (mkfifo(fifo, 0600) == 0) {
+    muse_inspect("nr-fifo", fifo, -1, &r); /* would block forever on a plain open() */
+    CHECK(strcmp(r.code, "pdf_unsupported") == 0, "a pipe is unsupported and does not hang");
+    unlink(fifo);
+  }
+}
+
+static void test_operation_ids_are_validated(void) {
+  printf("duplicate and overlong operation ids are refused\n");
+  char big[1024];
+  make_big_file(big, sizeof big, BIG_BYTES);
+  Job first;
+  start_job(&first, "dup-id", big);
+  usleep(30 * 1000);
+  MuseInspection second;
+  muse_inspect("dup-id", big, -1, &second);
+  CHECK(strcmp(second.code, "invalid_request") == 0, "a running operation's id cannot be reused");
+  muse_cancel("dup-id");
+  finish_job(&first);
+  CHECK(strcmp(first.result.code, "cancelled") == 0, "the original operation is unaffected");
+
+  char long_id[300];
+  memset(long_id, 'x', sizeof long_id - 1);
+  long_id[sizeof long_id - 1] = '\0';
+  MuseInspection r;
+  muse_inspect(long_id, big, -1, &r);
+  CHECK(strcmp(r.code, "invalid_request") == 0, "an overlong id is refused, not truncated");
+  muse_inspect("", big, -1, &r);
+  CHECK(strcmp(r.code, "invalid_request") == 0, "an empty id is refused");
+  unlink(big);
+}
+
 int main(int argc, char **argv) {
   if (argc < 2) {
     fprintf(stderr, "usage: %s <fixtures dir>\n", argv[0]);
     return 2;
   }
   fixtures_dir = argv[1];
+  alarm(120); /* a hang is a failure, not a stuck run */
   test_valid_pdf_reports_page_count_and_fingerprint();
   test_encrypted_pdf_requires_a_password();
   test_damaged_and_foreign_files_are_classified();
@@ -284,6 +344,9 @@ int main(int argc, char **argv) {
   test_a_queued_inspection_can_be_cancelled();
   test_cleanup_is_deterministic();
   test_stale_cancels_are_bounded();
+  test_a_large_non_pdf_is_rejected_without_hashing_it();
+  test_non_regular_files_are_rejected_without_blocking();
+  test_operation_ids_are_validated();
   printf(failures ? "%d failure(s)\n" : "all passed\n", failures);
   return failures ? 1 : 0;
 }

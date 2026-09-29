@@ -102,7 +102,7 @@ The interface is two methods. Results are values, not thrown exceptions, so call
 5. [done] Native `inspect` success on the tiny fixture. The JS contract suite cannot run inside a simulator, so this slice has three parts: the TypeScript wiring (`createMupdfDocumentRenderer`, with a `renderer_unavailable` result when the module is not linked), host-side C tests (`bun run test:native`) against committed fixtures under AddressSanitizer and UBSan, and a manual simulator run of the real adapter (below).
 6. [done] Native error paths and resource limits for the malformed, encrypted, and oversized fixtures (host C tests; the encrypted fixture is made with `mutool` from the pinned source; the byte-limit boundary is tested, and a mutation of it fails the suite).
 7. [done] Native cancellation, bounded concurrency, and cleanup verified with repeated runs (host C tests; the adapter forwards `cancel` only for in-flight operations).
-8. [done] Fixtures, measurements recorded in `docs/performance/0001-pdf-inspection.md`, production-profile exclusion and CI check (`tests/unit/mupdf-gate.test.ts`), documentation. Maestro automation of the bridge check moved to #6, which provides a real screen to drive.
+8. [done] Fixtures, measurements recorded in `docs/performance/0001-pdf-inspection.md`, production-profile exclusion and CI check (`tests/integration/mupdf-gate.test.ts`), documentation. Maestro automation of the bridge check moved to #6, which provides a real screen to drive.
 
 ## Validation
 
@@ -111,23 +111,21 @@ The interface is two methods. Results are values, not thrown exceptions, so call
 - [x] `bun run test:unit`
 - [x] `bun run test:integration`
 - [x] `bun run validate`
-- [x] Native fixture run on simulator (and one device when available)
-- [ ] Full diff self-review
-- [ ] Documentation updated (architecture seam, ADR 0001 pin, dependencies, requirements if limits change)
+- [~] Native fixture run on simulator (manual, tiny fixtures, uncommitted screen; no physical device). The review fixes were re-checked the same way: in-container file ok, `/etc/hosts` refused, directory unsupported, NaN limit handled in both layers, duplicate id refused
+- [x] Full diff self-review (two-axis code review; findings below)
+- [x] Documentation updated (architecture seam, ADR 0001 pin, dependencies, testing, performance record)
 
 ## Rollback and risks
 
 - **Licensing (blocking for release, not for development).** MuPDF is AGPL-3.0. Building it into a development client is fine; shipping it is blocked until ADR 0001 records AGPL compliance or a commercial license. Mitigation is the profile exclusion and CI check above. Owner decision required before any TestFlight or store build.
-- **Native build cost and reproducibility.** Compiling MuPDF adds build time. Mitigation: prebuild an xcframework from a pinned, checksummed source archive and cache it (see #14 for CI caching); never download during a build.
+- **Native build cost and reproducibility.** Compiling MuPDF adds build time. Mitigation: prebuild an xcframework from a pinned, checksummed source archive and cache it (see #14 for CI caching). App builds never download MuPDF; the explicit `scripts/build-mupdf.sh` step downloads once, refuses an archive whose SHA-256 differs, and re-extracts if the cached tree does not match.
 - **Native test harness uncertainty.** Local Expo modules under CNG may not host XCTest targets easily. The spike decides; the fallback is a debug-only runner that executes the contract suite on a simulator and reports results.
-- **Cancellation is cooperative.** MuPDF calls are not interruptible mid-parse; cancellation takes effect at checkpoints and through a time limit. The interface promises a `cancelled` result, not instant stop, and the fixtures measure worst-case latency to cancel.
+- **Cancellation is cooperative.** MuPDF calls are not interruptible mid-parse (including the repair scan of a damaged file); cancellation takes effect at checkpoints. There is no time limit: callers own timeouts and can cancel. The interface promises a `cancelled` result, not instant stop, and the fixtures measure worst-case latency to cancel.
 - **Rollback.** The module is additive and unused by the app until #6. Reverting the branch removes it with no data migration.
 
 ## Progress
 
-- Slices 1 to 4 are implemented in TypeScript: `src/domain/document-renderer.ts`, `src/testing/fake-document-renderer.ts`, `src/features/reader/native-document-renderer.ts`, with the contract in `tests/support/` and tests in `tests/unit/` and `tests/integration/`.
-- The native module contract is fixed: `inspectAsync(uri, operationId, maxBytes | null)` resolves a plain value `{status:'ok', pageCount, fingerprint}` or `{status:'error', code}` with codes `pdf_corrupt`, `pdf_encrypted`, `pdf_unsupported`, `file_too_large`, `cancelled`, `file_missing`, `io_error`; `cancel(operationId)` is synchronous. The adapter turns anything else (unknown code, malformed reply, thrown error) into an `internal` error and drops the thrown message, because it may hold a path.
-- Remaining: slice 0 spike (pinned MuPDF build, native test harness, production-profile exclusion), then slices 5 to 8. The contract suite is what the native adapter must pass on a simulator.
+All eight slices are done on the local branch. Acceptance criteria are met except where marked `[~]`: measurements come from a Mac host and the simulator, not a physical iPhone, and the bridge check was manual. The TypeScript seam is `src/domain/document-renderer.ts`, with the shared error table in `src/domain/renderer-errors.ts`, the fake in `src/testing/`, and the native adapter and loader in `src/features/reader/`. The native module contract is `inspectAsync(uri, operationId, maxBytes | null)` returning `{status:'ok', pageCount, fingerprint}` or `{status:'error', code}`, plus a synchronous `cancel(operationId)`.
 
 ## Spike findings (slice 0)
 
@@ -161,6 +159,15 @@ The interface is two methods. Results are values, not thrown exceptions, so call
 
 - **Fixtures and measurements.** `scripts/generate-pdf-fixtures.ts` builds valid 1k, 10k, and 100k page documents (balanced page tree, page counts confirmed by `mutool`), a 143 MB image-heavy scan, and a truncated file that forces MuPDF's repair scan. `bun run bench:native` measures them; results, method, and limits are in `docs/performance/0001-pdf-inspection.md`. On an Apple M4 host, 100,000 pages inspect in about 6 ms warm; a 143 MB scan takes about 59 ms (hashing at about 2.4 GB/s); peak memory growth stays under 7 MB.
 - **Size decision.** Bundled fonts made an inspection-only binary 38.1 MB. The build now defaults to MuPDF's font-trimming flags (`scripts/mupdf-config.sh`), giving 6.1 MB (xcframework 124 MB to 34 MB). Revisit when the Reader renders text.
-- **Licensing gate.** `tests/unit/mupdf-gate.test.ts` runs in `bun run validate` on every CI run: the framework is never tracked or un-ignored, the podspec vendors MuPDF only when the framework was built locally, EAS build hooks and `eas.json` never mention MuPDF, and only allowlisted test workflows may build it (never alongside `eas build`, submit, upload, or TestFlight steps). Mutations of each rule fail the suite.
+- **Licensing gate.** `tests/integration/mupdf-gate.test.ts` runs in `bun run validate` on every CI run: the framework is never tracked or un-ignored, the podspec vendors MuPDF only when the framework was built locally, EAS build hooks and `eas.json` never mention MuPDF, and only allowlisted test workflows may build it (never alongside `eas build`, submit, upload, or TestFlight steps). Mutations of each rule fail the suite.
 - **Deferred.** Maestro automation of the bridge check goes to #6. Budgets in the performance record are provisional until measured on a physical device.
 - **Not met as written.** The plan asked for latency and memory records with device and OS: the record is on a Mac host, not an iPhone (marked `[~]` above).
+
+## Review follow-ups
+
+A two-axis review (standards and spec) of the whole branch found real defects, fixed test-first where the behavior is observable:
+
+- **Fixed.** Missing `fz_var` for locals used after MuPDF's setjmp-based catch; `Int64(Double)` trap on NaN or infinity (now validated in the adapter and in Swift); unbounded work on non-regular files, where a pipe blocked `open()` forever (now opened non-blocking and required to be a regular file); the byte limit is enforced while streaming as well as up front; the file is opened once and the same handle is hashed and parsed, so the fingerprint describes the bytes MuPDF read; non-PDFs are rejected from their first bytes instead of after hashing everything; duplicate, empty, and overlong operation ids are refused (`invalid_request`) instead of truncated; MuPDF exceptions are classified (system, limit, unsupported, abort, otherwise corrupt) instead of all mapping to corrupt; queue overflow reports `too_many_operations` (a `resourceLimit`); the test hooks compile only with `MUSE_TESTING`; `sprintf` became `snprintf`; the error table, messages, and codes live in one domain module shared by the adapter, the unavailable renderer, and the fake; the unused module TypeScript file was removed; the gate test moved to `tests/integration/` as `docs/testing.md` prescribes; Node types are referenced by the two files that need them instead of globally in `tsconfig.json`; the build script re-extracts a cached source tree that does not match the pinned checksum; Swift accepts only `file://` paths inside the app's own container, with symlinks resolved; the benchmark now prints fingerprints and the generated fixtures are deterministic.
+- **Corrected claims.** The performance record no longer says repair is cancellable, no longer presents the 250 ms cancel assertion as a measured worst case, and now lists fingerprints.
+- **Accepted, not changed.** The font trimming, ThreadSanitizer, `leaks`, and mutation testing go beyond what the ticket asked but bear directly on its acceptance criteria and size risk. The licensing gate keeps MuPDF out by default and by test, but does not stop someone from building MuPDF into a local `eas build --local` or Release build after running the build script; only review and ADR 0001 cover that. No time limit exists (callers own timeouts). While queued, an inspection blocks one thread of the module's pool, capped at 128 operations. A finished operation's late cancel can sit in the pending ring, so the adapter forwards cancels only for in-flight ids.
+- **Follow-ups.** Run `bun run test:native` in CI (needs a macOS job; belongs with #14). Automate the bridge check as a Maestro flow and measure on a physical iPhone under #6, which provides a real screen to drive it.
