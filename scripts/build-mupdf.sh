@@ -9,12 +9,14 @@
 #        MUPDF_TARBALL=/path/to.tar.gz scripts/build-mupdf.sh   use a local copy (still verified)
 set -euo pipefail
 
-VERSION="1.28.5"
-SHA256="98a5c10cda20c3992cdf76ff6b2a1149c32bd79cc796d3f703230b1185b7e934"
-URL="https://casper.mupdf.com/downloads/archive/mupdf-${VERSION}-source.tar.gz"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/mupdf-config.sh
+. "$ROOT/scripts/mupdf-config.sh"
+VERSION="$MUPDF_VERSION"
+SHA256="$MUPDF_SHA256"
+URL="$MUPDF_URL"
 MIN_IOS="16.4"
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/modules/mupdf-renderer/ios/Frameworks/MuPDF.xcframework"
 WORK="${MUPDF_WORKDIR:-$ROOT/.cache/mupdf-$VERSION}"
 TARBALL="${MUPDF_TARBALL:-$WORK/mupdf-$VERSION-source.tar.gz}"
@@ -55,7 +57,7 @@ build_slice() { # name sdk min-flag
   rm -rf "$SRC/build"
   make -C "$SRC" -j"$(sysctl -n hw.ncpu)" OS="ios-$name" build=release \
     HAVE_GLUT=no HAVE_X11=no HAVE_OBJCOPY=no HAVE_LIBCRYPTO=no HAVE_CURL=no USE_SYSTEM_LIBS=no \
-    CC="$cc" CXX="$cc" AR="xcrun ar" RANLIB="xcrun ranlib" libs
+    XCFLAGS="$MUPDF_XCFLAGS" CC="$cc" CXX="$cc" AR="xcrun ar" RANLIB="xcrun ranlib" libs
   mkdir -p "$WORK/$name"
   libtool -static -o "$WORK/$name/libmupdf-all.a" \
     "$SRC/build/release/libmupdf.a" "$SRC/build/release/libmupdf-third.a" 2> >(grep -v "has no symbols" >&2 || true)
@@ -64,10 +66,12 @@ build_slice() { # name sdk min-flag
 if [ "${1:-}" = "--host" ]; then
   rm -rf "$SRC/build"
   make -C "$SRC" -j"$(sysctl -n hw.ncpu)" build=release \
-    HAVE_GLUT=no HAVE_X11=no HAVE_LIBCRYPTO=no HAVE_CURL=no USE_SYSTEM_LIBS=no libs
+    HAVE_GLUT=no HAVE_X11=no HAVE_LIBCRYPTO=no HAVE_CURL=no USE_SYSTEM_LIBS=no \
+    XCFLAGS="$MUPDF_XCFLAGS" libs
   mkdir -p "$WORK/host"
   libtool -static -o "$WORK/host/libmupdf-all.a" \
     "$SRC/build/release/libmupdf.a" "$SRC/build/release/libmupdf-third.a" 2> >(grep -v "has no symbols" >&2 || true)
+  mupdf_write_stamp "$WORK/host"
   echo "Built $WORK/host/libmupdf-all.a (MuPDF $VERSION, macOS)"
   exit 0
 fi

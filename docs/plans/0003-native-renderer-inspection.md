@@ -83,14 +83,14 @@ The interface is two methods. Results are values, not thrown exceptions, so call
 
 ## Acceptance criteria
 
-- [ ] Inspection returns page count and document identity through the opaque renderer interface.
-- [ ] Corrupt, encrypted, unsupported, and resource-limited input each return the matching category, with no path or content in any message or diagnostic.
-- [ ] Inspection is cancellable, concurrency is bounded (proposed: 2 concurrent inspections, extras queued), and native resources are released on success, failure, and cancellation.
-- [ ] Accessibility: no UI in this slice; user-facing error messages are plain, actionable sentences that #6 can display unchanged.
-- [ ] Failure and cancellation behavior is defined and tested at the seam.
-- [ ] Named fixtures record latency and memory: tiny PDF, image-heavy scan, malformed file, password-protected file, and a synthetic document near 100,000 pages. Each record notes device, OS, cold or warm state, and file fingerprint. Target: inspection cost scales with metadata reads, not total page count.
-- [ ] No MuPDF-containing build can be distributed before the accepted licensing path in ADR 0001: production and preview EAS profiles exclude the module, and a CI check fails if they include it.
-- [ ] The selected MuPDF release is pinned with a checksum, and the source is fetched reproducibly (no floating download during builds).
+- [x] Inspection returns page count and document identity through the opaque renderer interface.
+- [x] Corrupt, encrypted, unsupported, and resource-limited input each return the matching category, with no path or content in any message or diagnostic.
+- [x] Inspection is cancellable, concurrency is bounded (proposed: 2 concurrent inspections, extras queued), and native resources are released on success, failure, and cancellation.
+- [x] Accessibility: no UI in this slice; user-facing error messages are plain, actionable sentences that #6 can display unchanged.
+- [x] Failure and cancellation behavior is defined and tested at the seam.
+- [~] Named fixtures record latency and memory: tiny PDF, image-heavy scan, malformed file, password-protected file, and a synthetic document near 100,000 pages. Each record notes device, OS, cold or warm state, and file fingerprint. Target: inspection cost scales with metadata reads, not total page count.
+- [x] No MuPDF-containing build can be distributed before the accepted licensing path in ADR 0001: production and preview EAS profiles exclude the module, and a CI check fails if they include it.
+- [x] The selected MuPDF release is pinned with a checksum, and the source is fetched reproducibly (no floating download during builds).
 
 ## Vertical slices
 
@@ -102,16 +102,16 @@ The interface is two methods. Results are values, not thrown exceptions, so call
 5. [done] Native `inspect` success on the tiny fixture. The JS contract suite cannot run inside a simulator, so this slice has three parts: the TypeScript wiring (`createMupdfDocumentRenderer`, with a `renderer_unavailable` result when the module is not linked), host-side C tests (`bun run test:native`) against committed fixtures under AddressSanitizer and UBSan, and a manual simulator run of the real adapter (below).
 6. [done] Native error paths and resource limits for the malformed, encrypted, and oversized fixtures (host C tests; the encrypted fixture is made with `mutool` from the pinned source; the byte-limit boundary is tested, and a mutation of it fails the suite).
 7. [done] Native cancellation, bounded concurrency, and cleanup verified with repeated runs (host C tests; the adapter forwards `cancel` only for in-flight operations).
-8. Fixtures, measurements recorded in `docs/performance/`, production-profile exclusion and CI check, documentation.
+8. [done] Fixtures, measurements recorded in `docs/performance/0001-pdf-inspection.md`, production-profile exclusion and CI check (`tests/unit/mupdf-gate.test.ts`), documentation. Maestro automation of the bridge check moved to #6, which provides a real screen to drive.
 
 ## Validation
 
-- [ ] `bun run lint`
-- [ ] `bun run typecheck`
-- [ ] `bun run test:unit`
-- [ ] `bun run test:integration`
-- [ ] `bun run validate`
-- [ ] Native fixture run on simulator (and one device when available)
+- [x] `bun run lint`
+- [x] `bun run typecheck`
+- [x] `bun run test:unit`
+- [x] `bun run test:integration`
+- [x] `bun run validate`
+- [x] Native fixture run on simulator (and one device when available)
 - [ ] Full diff self-review
 - [ ] Documentation updated (architecture seam, ADR 0001 pin, dependencies, requirements if limits change)
 
@@ -156,3 +156,11 @@ The interface is two methods. Results are values, not thrown exceptions, so call
 - **Adapter.** `createNativeDocumentRenderer` forwards `cancel` only for in-flight ids (new tests).
 - **Bridge check.** On the iOS 26.5 simulator with the real adapter: encrypted returned `passwordRequired`, an immediate cancel returned `cancelled`, and 8 concurrent inspections all succeeded.
 - **Known limits.** While queued, a waiting inspection blocks one thread of the Expo module's pool; the bounded queue depth (128 operations) returns `io_error` beyond that. Revisit if the Library imports very large batches (#7).
+
+## Slice 8 results
+
+- **Fixtures and measurements.** `scripts/generate-pdf-fixtures.ts` builds valid 1k, 10k, and 100k page documents (balanced page tree, page counts confirmed by `mutool`), a 143 MB image-heavy scan, and a truncated file that forces MuPDF's repair scan. `bun run bench:native` measures them; results, method, and limits are in `docs/performance/0001-pdf-inspection.md`. On an Apple M4 host, 100,000 pages inspect in about 6 ms warm; a 143 MB scan takes about 59 ms (hashing at about 2.4 GB/s); peak memory growth stays under 7 MB.
+- **Size decision.** Bundled fonts made an inspection-only binary 38.1 MB. The build now defaults to MuPDF's font-trimming flags (`scripts/mupdf-config.sh`), giving 6.1 MB (xcframework 124 MB to 34 MB). Revisit when the Reader renders text.
+- **Licensing gate.** `tests/unit/mupdf-gate.test.ts` runs in `bun run validate` on every CI run: the framework is never tracked or un-ignored, the podspec vendors MuPDF only when the framework was built locally, EAS build hooks and `eas.json` never mention MuPDF, and only allowlisted test workflows may build it (never alongside `eas build`, submit, upload, or TestFlight steps). Mutations of each rule fail the suite.
+- **Deferred.** Maestro automation of the bridge check goes to #6. Budgets in the performance record are provisional until measured on a physical device.
+- **Not met as written.** The plan asked for latency and memory records with device and OS: the record is on a Mac host, not an iPhone (marked `[~]` above).

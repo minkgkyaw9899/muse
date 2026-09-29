@@ -7,7 +7,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-VERSION="1.28.5"
+. "$ROOT/scripts/mupdf-config.sh"
+VERSION="$MUPDF_VERSION"
 WORK="${MUPDF_WORKDIR:-$ROOT/.cache/mupdf-$VERSION}"
 MODULE="$ROOT/modules/mupdf-renderer/ios"
 OUT="$WORK/host-tests"
@@ -17,7 +18,7 @@ mkdir -p "$OUT"
 BASE=(-g -O1 -Wall -Wextra -I"$MODULE")
 LIBS=()
 if [ "${MUSE_STUB:-0}" != "1" ]; then
-  if [ ! -f "$WORK/host/libmupdf-all.a" ]; then
+  if [ ! -f "$WORK/host/libmupdf-all.a" ] || ! mupdf_stamp_matches "$WORK/host"; then
     "$ROOT/scripts/build-mupdf.sh" --host
   fi
   BASE+=(-DMUSE_HAS_MUPDF=1 -I"$WORK/src/include")
