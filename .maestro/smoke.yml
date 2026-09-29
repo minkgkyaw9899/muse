@@ -1,0 +1,7 @@
+appId: com.minkgkyaw9899.muse
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Welcome to.*Expo'
+- tapOn: Explore
+- assertVisible: 'This starter app includes example.*'

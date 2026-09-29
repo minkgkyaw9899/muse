@@ -1,0 +1,53 @@
+name: iOS Maestro E2E
+
+on:
+  pull_request:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-maestro-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  maestro:
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Maestro 2.10.0
+        run: |
+          curl --fail --location --retry 3 --output /tmp/muse-maestro.zip https://github.com/mobile-dev-inc/Maestro/releases/download/cli-2.10.0/maestro.zip
+          echo '29b675e10cc12080e445e9bfb2e2b4e4dfb9c0f2e30d5884120d258b5e1cd991  /tmp/muse-maestro.zip' | shasum -a 256 --check
+          unzip -q /tmp/muse-maestro.zip -d /tmp/muse-maestro
+          test -x /tmp/muse-maestro/maestro/bin/maestro
+          echo /tmp/muse-maestro/maestro/bin >> "$GITHUB_PATH"
+
+      - name: Build standalone iOS simulator app
+        run: bunx expo run:ios --configuration Release --device generic --output /tmp/muse-e2e-build
+
+      - name: Boot iPhone simulator
+        run: |
+          DEVICE_ID=$(xcrun simctl create 'Muse E2E' com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro com.apple.CoreSimulator.SimRuntime.iOS-26-5)
+          xcrun simctl boot "$DEVICE_ID"
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          xcrun simctl install "$DEVICE_ID" /tmp/muse-e2e-build/Muse.app
+          echo "MAESTRO_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
+
+      - name: Run Maestro flows
+        env:
+          MAESTRO_CLI_NO_ANALYTICS: '1'
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: '120000'
+        run: maestro test --udid "$MAESTRO_DEVICE_ID" .maestro

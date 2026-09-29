@@ -11,6 +11,8 @@ Before planning or implementing any feature, read all three documents:
 3. `docs/requirements.md` — product scope, priorities, and acceptance criteria.
 
 Read `CONTEXT.md` whenever naming domain concepts. Read relevant ADRs in `docs/adr/` before changing an architectural decision.
+Read `docs/testing.md` when adding or changing tests, test scripts, or CI.
+Read `docs/agents/issue-tracker.md` before creating, starting, or completing a GitHub ticket or PR.
 
 For every feature, use the relevant project-installed Matt Pocock skills. At minimum:
 
@@ -33,14 +35,19 @@ Every feature follows this loop. Record the implementation plan using `docs/impl
 5. Run `bun run lint`.
 6. Run `bun run typecheck`.
 7. Run `bun run test:unit`.
-8. Run `bun run test:integration`.
-9. Fix failures and repeat from the smallest failing check.
-10. Run `bun run validate`.
+8. Run `bun run test:integration` and `bun run test:ui`.
+9. Run relevant Maestro flows on an installed simulator build for UI or native behavior changes.
+10. Fix failures, then run `bun run validate`.
 11. Review the entire diff for correctness, scope, accessibility, performance, and security.
 12. Update affected requirements, architecture, ADRs, and operational notes.
-13. Prepare a focused PR; do not push or open it unless requested.
+13. Prepare a focused PR to `develop` linked to a GitHub ticket, with a Conventional Commits 1.0.0 title (`type(scope): description` or `type: description`); push and open it when requested. Keep the worktree until its work is no longer needed.
 
 Never mark work complete while a required validation command fails. Do not weaken, skip, or delete a test merely to make validation pass.
+
+## Branch workflow
+
+Read `docs/branching.md` before starting or finishing feature work. `main` is stable; `develop` is the beta integration branch. Start features from `develop` in an isolated worktree. Feature PRs target `develop`; release PRs go from `develop` to `main`.
+Assign each ticket and PR to an owner, label, milestone, and GitHub Project when those fields apply. Link the implementation PR in the ticket's GitHub Development panel. Close the ticket only after its PR is merged and acceptance criteria pass.
 
 ## Platform and native rules
 
@@ -52,6 +59,7 @@ Never mark work complete while a required validation command fails. Do not weake
 - MuPDF distribution is blocked until `docs/adr/0001-mupdf-native-renderer.md` records an accepted licensing path.
 - Use Liquid Glass only when both `isLiquidGlassAvailable()` and `isGlassEffectAPIAvailable()` succeed. The same feature must have a complete non-glass design on iOS below 26 and unsupported platforms.
 - Use `bunx expo install <package>` for Expo/React Native packages so SDK-compatible versions are selected. Use Bun for all other package operations.
+- Build routine development versions locally with `bunx expo run:ios` or `bunx expo run:android`. Keep EAS development and preview profiles available for beta testing; publish beta and stable releases only when their branches are ready.
 
 ## Code and design rules
 
@@ -73,8 +81,12 @@ bun run lint
 bun run typecheck
 bun run test:unit
 bun run test:integration
+bun run test:ui
+bun run test:e2e
 bun run validate
 bunx expo-doctor
 bunx expo start --dev-client
+bunx expo run:ios
+bunx expo run:ios --configuration Release --device generic --output ./build
 bunx eas-cli build --profile development --platform ios
 ```
