@@ -12,6 +12,7 @@ Before planning or implementing any feature, read all three documents:
 
 Read `CONTEXT.md` whenever naming domain concepts. Read relevant ADRs in `docs/adr/` before changing an architectural decision.
 Read `docs/testing.md` when adding or changing tests, test scripts, or CI.
+Read `docs/agents/issue-tracker.md` before creating, starting, or completing a GitHub ticket or PR.
 
 For every feature, use the relevant project-installed Matt Pocock skills. At minimum:
 
@@ -46,7 +47,7 @@ Never mark work complete while a required validation command fails. Do not weake
 ## Branch workflow
 
 Read `docs/branching.md` before starting or finishing feature work. `main` is stable; `develop` is the beta integration branch. Start features from `develop` in an isolated worktree. Feature PRs target `develop`; release PRs go from `develop` to `main`.
-Assign each ticket and PR to an owner, label, milestone, and GitHub Project when those fields apply. Link the development branch when available. Close the ticket only after its PR is merged and acceptance criteria pass.
+Assign each ticket and PR to an owner, label, milestone, and GitHub Project when those fields apply. Link the implementation PR in the ticket's GitHub Development panel. Close the ticket only after its PR is merged and acceptance criteria pass.
 
 ## Platform and native rules
 
