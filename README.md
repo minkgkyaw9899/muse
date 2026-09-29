@@ -9,6 +9,7 @@ Muse is an iOS-first, offline PDF reader focused on responsive navigation throug
 - [Engineering constitution](docs/constitution.md)
 - [Domain language](CONTEXT.md)
 - [Dependency decisions](docs/dependencies.md)
+- [Security and code-quality checks](docs/security-quality.md)
 - [Implementation plan template](docs/implementation-plan-template.md)
 - [Project foundation plan](docs/plans/0001-project-foundation.md)
 
@@ -19,6 +20,7 @@ Install dependencies and run the complete validation loop:
 ```bash
 bun install --frozen-lockfile
 bun run validate
+bun audit --audit-level=high
 ```
 
 Muse requires a development build because its PDF renderer contains custom native code. Expo Go is not supported.

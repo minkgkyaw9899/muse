@@ -17,3 +17,5 @@ This record covers packages introduced for the Muse foundation. Versions are res
 `react-native-boost` was evaluated but removed from the foundation: no measured bottleneck justified a global Metro integration yet. Performance dependencies require a benchmark-backed feature plan.
 
 CI actions are pinned to immutable commits: `actions/checkout` v4.2.2 at `11bd71901bbe5b1630ceea73d27597364c9af683` (MIT) and `oven-sh/setup-bun` v2.2.0 at `0c5077e51419868618aeaa5fe8019c62421857d6` (MIT).
+
+The security workflow uses `github/codeql-action` v4.38.2 at `2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2` (MIT). It runs in GitHub Actions and is not an app dependency. `bun audit` is built into the pinned Bun toolchain.
