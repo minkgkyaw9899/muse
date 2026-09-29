@@ -3,31 +3,97 @@ name: iOS Maestro E2E
 on:
   pull_request:
     branches: [develop]
+  # Pushes to develop keep a warm native cache: PR caches are only readable by that PR,
+  # while caches saved on the base branch are readable by every PR that targets it.
+  push:
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      clean_cache:
+        description: Ignore every native cache and rebuild from scratch
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: ios-maestro-${{ github.event.pull_request.number }}
+  group: ios-maestro-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
+env:
+  # Bump the repository variable NATIVE_CACHE_VERSION to invalidate every native cache
+  # (bun, CocoaPods, ccache) without a code change.
+  CACHE_VERSION: ${{ vars.NATIVE_CACHE_VERSION || 'v1' }}
+  # Skip installing git hooks on the runner.
+  LEFTHOOK: '0'
 
 jobs:
   maestro:
     runs-on: macos-26
-    timeout-minutes: 90
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      # Lets the recovery step delete a cache entry that produced a failing build.
+      actions: write
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      # Decide how much work this run needs.
+      #   run_build=false  the pull request only touches docs, so skip the macOS build.
+      #   fresh=true       native inputs changed a lot (lockfile, app config, local modules or
+      #                    plugins) or the diff is large, so do not restore a stale fallback cache.
+      - name: Plan build and cache use
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CLEAN_INPUT: ${{ inputs.clean_cache }}
+        run: |
+          set -euo pipefail
+          run_build=true
+          fresh=false
+          if [ "$EVENT" = "pull_request" ]; then
+            changed=$(git diff --name-only "$BASE_SHA"...HEAD)
+            total=$(printf '%s\n' "$changed" | grep -c . || true)
+            if [ -z "$(printf '%s\n' "$changed" | grep -vE '^(docs/|.*\.md$)' || true)" ]; then
+              run_build=false
+            fi
+            if printf '%s\n' "$changed" | grep -Eq '^(bun\.lock|app\.json|eas\.json|modules/|plugins/)' || [ "$total" -gt 150 ]; then
+              fresh=true
+            fi
+            echo "Changed files: $total"
+          fi
+          if [ "$CLEAN_INPUT" = "true" ]; then fresh=true; fi
+          echo "run_build=$run_build" >> "$GITHUB_OUTPUT"
+          echo "fresh=$fresh" >> "$GITHUB_OUTPUT"
+          echo "run_build=$run_build fresh=$fresh"
 
       - name: Set up Bun
+        if: steps.plan.outputs.run_build == 'true'
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.2
 
+      - name: Cache Bun packages
+        if: steps.plan.outputs.run_build == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ env.CACHE_VERSION }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-${{ env.CACHE_VERSION }}-
+
+      # If a restored cache is corrupt, clear it and install again once.
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        if: steps.plan.outputs.run_build == 'true'
+        run: bun install --frozen-lockfile || (bun pm cache rm && bun install --frozen-lockfile)
 
       - name: Install Maestro 2.10.0
+        if: steps.plan.outputs.run_build == 'true'
         run: |
           curl --fail --location --retry 3 --output /tmp/muse-maestro.zip https://github.com/mobile-dev-inc/Maestro/releases/download/cli-2.10.0/maestro.zip
           echo '29b675e10cc12080e445e9bfb2e2b4e4dfb9c0f2e30d5884120d258b5e1cd991  /tmp/muse-maestro.zip' | shasum -a 256 --check
@@ -35,10 +101,70 @@ jobs:
           test -x /tmp/muse-maestro/maestro/bin/maestro
           echo /tmp/muse-maestro/maestro/bin >> "$GITHUB_PATH"
 
+      - name: Install ccache
+        if: steps.plan.outputs.run_build == 'true'
+        run: brew install ccache
+
+      # The key covers only native inputs, so JavaScript-only changes reuse the exact cache and
+      # only re-run the JS bundle. ccache is content-addressed, so a partial restore is safe.
+      - name: Cache C++ compilation (ccache)
+        if: steps.plan.outputs.run_build == 'true'
+        id: ccache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.ccache
+          key: ccache-${{ runner.os }}-${{ env.CACHE_VERSION }}-${{ hashFiles('bun.lock', 'app.json', 'eas.json', 'modules/**', 'plugins/**') }}
+          restore-keys: ${{ steps.plan.outputs.fresh == 'true' && '' || format('ccache-{0}-{1}-', runner.os, env.CACHE_VERSION) }}
+
+      - name: Cache CocoaPods downloads
+        if: steps.plan.outputs.run_build == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/Library/Caches/CocoaPods
+          key: pods-${{ runner.os }}-${{ env.CACHE_VERSION }}-${{ hashFiles('bun.lock', 'app.json', 'modules/**') }}
+          restore-keys: ${{ steps.plan.outputs.fresh == 'true' && '' || format('pods-{0}-{1}-', runner.os, env.CACHE_VERSION) }}
+
+      - name: Configure ccache
+        if: steps.plan.outputs.run_build == 'true'
+        run: |
+          {
+            echo "USE_CCACHE=1"
+            echo "CCACHE_DIR=$HOME/.ccache"
+            echo "CCACHE_MAXSIZE=1500M"
+            echo "CCACHE_COMPILERCHECK=content"
+            echo "CCACHE_SLOPPINESS=clang_index_store,file_stat_matches,include_file_mtime,include_file_ctime,pch_defines,modules,system_headers,time_macros"
+          } >> "$GITHUB_ENV"
+          ccache --zero-stats
+
       - name: Build standalone iOS simulator app
+        if: steps.plan.outputs.run_build == 'true'
+        id: build
+        continue-on-error: true
         run: bunx expo run:ios --configuration Release --device generic --output /tmp/muse-e2e-build
 
+      # Recovery: a failing build after a cache restore may be caused by a stale cache.
+      # Delete this cache generation, wipe local build state, and build once from scratch.
+      - name: Recover with a clean rebuild
+        if: steps.plan.outputs.run_build == 'true' && steps.build.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          echo "::warning::Build failed with caches restored; clearing native caches and retrying clean."
+          ccache --clear || true
+          rm -rf ios ~/Library/Developer/Xcode/DerivedData ~/Library/Caches/CocoaPods ~/.ccache
+          for prefix in "ccache-${RUNNER_OS}-${CACHE_VERSION}-" "pods-${RUNNER_OS}-${CACHE_VERSION}-"; do
+            gh cache list --repo "$GITHUB_REPOSITORY" --key "$prefix" --json id --jq '.[].id' \
+              | xargs -n1 gh cache delete --repo "$GITHUB_REPOSITORY" || true
+          done
+          bunx expo run:ios --configuration Release --device generic --output /tmp/muse-e2e-build
+
+      - name: ccache statistics
+        if: steps.plan.outputs.run_build == 'true' && always()
+        run: ccache --show-stats || true
+
       - name: Boot iPhone simulator
+        if: steps.plan.outputs.run_build == 'true'
         run: |
           DEVICE_ID=$(xcrun simctl create 'Muse E2E' com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro com.apple.CoreSimulator.SimRuntime.iOS-26-5)
           xcrun simctl boot "$DEVICE_ID"
@@ -47,6 +173,7 @@ jobs:
           echo "MAESTRO_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
 
       - name: Run Maestro flows
+        if: steps.plan.outputs.run_build == 'true'
         env:
           MAESTRO_CLI_NO_ANALYTICS: '1'
           MAESTRO_DRIVER_STARTUP_TIMEOUT: '120000'
