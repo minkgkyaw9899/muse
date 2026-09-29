@@ -13,7 +13,7 @@ Muse can hand one app-owned local PDF to a native renderer module and get back b
 - [x] `docs/requirements.md`
 - [x] `CONTEXT.md` terms and ADR 0001 (MuPDF via local Expo module), ADR 0002 (owned storage)
 - [x] `codebase-design` and `expo-module` skills; Expo SDK 57 Module API reference (`https://docs.expo.dev/modules/module-api.md`)
-- [ ] `tdd` skill: loaded when the seam is confirmed and the first test is written
+- [x] `tdd` skill
 
 ## Scope
 
@@ -37,21 +37,20 @@ Muse can hand one app-owned local PDF to a native renderer module and get back b
 
 ## Seams and tests
 
-Proposed public seam, pending confirmation before the first test:
+Public seam, confirmed with the project owner (one-shot `inspect` plus `cancel`; identity is a native SHA-256 of the file bytes):
 
 ```ts
 type InspectionRequest = {
   /** App-owned file URI, never a picker URL. */
   uri: string;
   operationId: string;
-  limits?: { maxBytes?: number; timeoutMs?: number };
+  limits?: { maxBytes?: number };
 };
 
 type Inspection = {
   pageCount: number;
   /** Stable identity of the file's bytes. */
   fingerprint: string;
-  isEncrypted: false; // encrypted files return passwordRequired instead
 };
 
 type RendererError = {
@@ -71,15 +70,16 @@ interface DocumentRenderer {
 
 The interface is two methods. Results are values, not thrown exceptions, so callers must handle every category. Callers never see a handle, so the caller cannot forget to close one.
 
-- Unit seam: `DocumentRenderer` through the in-memory fake. Behavior: valid fixture returns page count and fingerprint; each error category is returned as a value; `cancel` before completion yields `cancelled`; cancelling an unknown id is a no-op; results never contain the input path.
+- Unit seam: `DocumentRenderer` through the in-memory fake (`src/testing/fake-document-renderer.ts`) and the shared contract in `tests/support/document-renderer-contract.ts`. Behavior: valid fixture returns page count and fingerprint; each error category is returned as a value; `cancel` before completion yields `cancelled`; cancelling an unknown id is a no-op; results never contain the input path.
 - Contract seam: one `documentRendererContract(createRenderer)` suite runs against the fake now and against the native adapter in the app later. This is the "two adapters" that makes the seam real.
 - Integration seam: `createNativeDocumentRenderer(nativeModule)` maps the native module's coded failures into the `RendererError` union. Tested with an in-memory stand-in for the native module at the module boundary, which is a declared seam, not an internal collaborator.
 - Native seam: fixtures exercised on a simulator against the real module. The harness form (Swift XCTest in a local module, or a debug-only in-app runner) is decided in slice 0 because it depends on what Expo local modules support under CNG.
 
-## Decisions needed
+## Decisions
 
-1. **Document identity.** Recommended: the native module streams the file once and returns a SHA-256 of its bytes as `fingerprint`, with fixed memory use. That matches the requirement for a "stable content fingerprint" and avoids hashing large files in JavaScript. Alternative: use the PDF trailer `/ID`, which is cheap but absent or non-unique in many real files, so it cannot back duplicate detection.
-2. **Seam shape.** Recommended: one-shot `inspect` (above). Alternative: expose `open`/`close` now, matching the architecture sketch, which invites leaked handles before the reader exists.
+1. **Document identity:** the native module streams the file once and returns a SHA-256 of its bytes as `fingerprint`, with fixed memory use. Chosen over the PDF trailer `/ID`, which is absent or non-unique in many real files.
+2. **Seam shape:** one-shot `inspect` plus `cancel`. `open`/`close` sessions arrive with the Reader.
+3. **Missing owned file:** returned as `internal` with code `file_missing`, because an owned file that vanished is an integrity fault, not user input. Revisit when #6 defines the Library's missing-file state.
 
 ## Acceptance criteria
 
@@ -95,10 +95,10 @@ The interface is two methods. Results are values, not thrown exceptions, so call
 ## Vertical slices
 
 0. **Spike (no production API).** Build a pinned MuPDF for iOS simulator and device, link it in a local module scaffolded with `create-expo-module`, open one PDF, and print page count. Decide the native test harness, the memory-measurement method, and the production-profile exclusion mechanism. Output: findings appended to this plan, and an ADR update if the build approach changes ADR 0001.
-1. Failing contract test: valid PDF returns page count and fingerprint, then the `DocumentRenderer` types and the fake.
-2. Failing tests: each error category as a value, no paths in messages, then the fake and the error union.
-3. Failing tests: cancellation and bounded concurrency at the seam.
-4. Failing integration test: native error codes map to the union, then `createNativeDocumentRenderer`.
+1. [done] Failing contract test: valid PDF returns page count and fingerprint, then the `DocumentRenderer` types and the fake.
+2. [done] Failing tests: each error category as a value, no paths in messages, then the fake and the error union.
+3. [done] Failing tests: cancellation at the seam. Bounded concurrency is not observable through the interface, so it is verified natively in slice 7.
+4. [done] Failing integration test: native error codes map to the union, then `createNativeDocumentRenderer`.
 5. Native `inspect` success on the tiny fixture, through the contract suite on a simulator.
 6. Native error paths and resource limits for the malformed, encrypted, and oversized fixtures.
 7. Native cancellation, bounded concurrency, and cleanup verified with repeated runs.
@@ -122,3 +122,9 @@ The interface is two methods. Results are values, not thrown exceptions, so call
 - **Native test harness uncertainty.** Local Expo modules under CNG may not host XCTest targets easily. The spike decides; the fallback is a debug-only runner that executes the contract suite on a simulator and reports results.
 - **Cancellation is cooperative.** MuPDF calls are not interruptible mid-parse; cancellation takes effect at checkpoints and through a time limit. The interface promises a `cancelled` result, not instant stop, and the fixtures measure worst-case latency to cancel.
 - **Rollback.** The module is additive and unused by the app until #6. Reverting the branch removes it with no data migration.
+
+## Progress
+
+- Slices 1 to 4 are implemented in TypeScript: `src/domain/document-renderer.ts`, `src/testing/fake-document-renderer.ts`, `src/features/reader/native-document-renderer.ts`, with the contract in `tests/support/` and tests in `tests/unit/` and `tests/integration/`.
+- The native module contract is fixed: `inspectAsync(uri, operationId, maxBytes | null)` resolves a plain value `{status:'ok', pageCount, fingerprint}` or `{status:'error', code}` with codes `pdf_corrupt`, `pdf_encrypted`, `pdf_unsupported`, `file_too_large`, `cancelled`, `file_missing`, `io_error`; `cancel(operationId)` is synchronous. The adapter turns anything else (unknown code, malformed reply, thrown error) into an `internal` error and drops the thrown message, because it may hold a path.
+- Remaining: slice 0 spike (pinned MuPDF build, native test harness, production-profile exclusion), then slices 5 to 8. The contract suite is what the native adapter must pass on a simulator.

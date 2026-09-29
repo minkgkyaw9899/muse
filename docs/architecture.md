@@ -67,7 +67,7 @@ interface DocumentRenderer {
 }
 ```
 
-`DocumentSession` exposes immutable metadata and an opaque handle. It never exposes MuPDF pointers. Exact types are finalized by the native spike and recorded before tests are written.
+The first slice ships only the one-shot `inspect(request)` and `cancel(operationId)` (returning a page count and content fingerprint, or a typed error as a value), so no handle exists yet to leak; `open`/`close` sessions arrive with the Reader. `DocumentSession` exposes immutable metadata and an opaque handle. It never exposes MuPDF pointers. Exact types are finalized by the native spike and recorded before tests are written.
 
 The native implementation owns:
 
