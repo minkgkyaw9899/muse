@@ -19,3 +19,5 @@ This record covers packages introduced for the Muse foundation. Versions are res
 CI actions are pinned to immutable commits: `actions/checkout` v4.2.2 at `11bd71901bbe5b1630ceea73d27597364c9af683` (MIT) and `oven-sh/setup-bun` v2.2.0 at `0c5077e51419868618aeaa5fe8019c62421857d6` (MIT).
 
 Maestro CLI 2.10.0 is pinned in GitHub Actions with the release ZIP SHA-256 `29b675e10cc12080e445e9bfb2e2b4e4dfb9c0f2e30d5884120d258b5e1cd991`. It runs outside the app dependency graph against an installed simulator build. Its source is Apache-2.0 licensed; no Maestro runtime package is shipped in Muse.
+
+MuPDF 1.28.5 is built from source by `scripts/build-mupdf.sh` (pinned URL, SHA-256 `98a5c10cda20c3992cdf76ff6b2a1149c32bd79cc796d3f703230b1185b7e934`) for development and CI test builds only, with bundled fonts trimmed (see `scripts/mupdf-config.sh`). License: AGPL-3.0 (commercial licenses available from Artifex). Distribution is blocked by ADR 0001 until a licensing path is accepted; the binary is never committed.

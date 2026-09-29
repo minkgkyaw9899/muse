@@ -35,3 +35,11 @@ _Avoid_: Open by path, upload
 **Page rendition**:
 A raster result for a page, scale, color mode, and render-engine version.
 _Avoid_: Screenshot, image
+
+**Inspection**:
+A bounded read of a local PDF's metadata (page count and fingerprint) before it becomes a publication. It renders no pages.
+_Avoid_: Scan, parse, validate
+
+**Fingerprint**:
+The SHA-256 of a publication file's bytes, used as its stable content identity and for duplicate detection.
+_Avoid_: Hash, checksum, ID

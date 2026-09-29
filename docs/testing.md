@@ -9,6 +9,7 @@ Lefthook runs Biome on staged JavaScript, TypeScript, JSON, and CSS before each 
 | Unit | `bun run test:unit` | `tests/unit/` | Exported domain or utility behavior |
 | Integration | `bun run test:integration` | `tests/integration/` | Application and Expo configuration seams |
 | Rendered UI | `bun run test:ui` | `tests/ui/` | Visible React Native behavior via React Native Testing Library |
+| Native host | `bun run test:native` | `tests/native/` | The C inspection wrapper against real MuPDF: plain, AddressSanitizer, UBSan, ThreadSanitizer, and `leaks` (macOS only; not part of `validate`) |
 | Installed app | `bun run test:e2e` | `.maestro/` | iOS simulator behavior via Maestro |
 
 Jest uses the SDK 57 `jest-expo` preset. React Native Testing Library 14 uses async `render`, so await the result before querying. Keep assertions on visible content or accessible controls. The UI tests cover shared primitives and the Maestro smoke flow walks the three-tab shell and the Appearance choice; extend them with Library and Reader flows as those screens are built. The Maestro flow has not been run against this shell yet.
@@ -40,3 +41,7 @@ The workflow also runs on pushes to `develop`. GitHub only lets a PR read caches
 | Manual reset | Run the workflow with `clean_cache`, or bump the repository variable `NATIVE_CACHE_VERSION` to invalidate every cache. |
 
 These changes were validated for YAML syntax only. Measure the first runs on GitHub (compare the `ccache statistics` step and total job time before and after) before treating the speed-up as proven.
+
+## Native inspection benchmark
+
+`bun run bench:native` (macOS only) generates large fixtures under `.cache/fixtures` and prints latency and memory per fixture as a markdown table. Results are recorded in `docs/performance/`. The MuPDF build and the tests in `tests/integration/mupdf-gate.test.ts` keep MuPDF out of preview and production builds; see ADR 0001.
