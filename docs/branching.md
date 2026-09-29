@@ -7,7 +7,7 @@
 1. Update local `develop` from `origin/develop`.
 2. Create an isolated worktree and feature branch from `develop`.
 3. Read the required project docs, write a plan, implement the smallest slice, and run the `AGENTS.md` validation loop. Run relevant Maestro flows on a built app for UI or native behavior.
-4. Review the diff and prepare a focused PR. Push and open the PR when requested. Include validation results and any Maestro build/run links.
+4. Review the diff and prepare a focused PR with a [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) title such as `test: add UI smoke coverage`. Push and open the PR when requested. Include validation results and any Maestro build/run links.
 5. Merge to `develop` only after required checks pass. Retire the worktree when no ongoing work needs it.
 
 ## Release flow

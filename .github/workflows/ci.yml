@@ -21,7 +21,12 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
           HEAD_REF: ${{ github.head_ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
+          if ! printf '%s\n' "$PR_TITLE" | grep -Eq '^[a-z][a-z0-9-]*(\([a-z0-9-]+\))?!?: .+'; then
+            echo "PR title must follow Conventional Commits: type(scope): description"
+            exit 1
+          fi
           if [[ "$BASE_REF" == "develop" && ( "$HEAD_REF" == feature/* || "$HEAD_REF" == codex/* ) ]]; then exit 0; fi
           if [[ "$BASE_REF" == "main" && "$HEAD_REF" == "develop" ]]; then exit 0; fi
           echo "Feature PRs target develop; only develop targets main."

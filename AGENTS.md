@@ -39,7 +39,7 @@ Every feature follows this loop. Record the implementation plan using `docs/impl
 10. Fix failures, then run `bun run validate`.
 11. Review the entire diff for correctness, scope, accessibility, performance, and security.
 12. Update affected requirements, architecture, ADRs, and operational notes.
-13. Prepare a focused PR to `develop`; push and open it when requested. Keep the worktree until its work is no longer needed.
+13. Prepare a focused PR to `develop` with a Conventional Commits 1.0.0 title (`type(scope): description` or `type: description`); push and open it when requested. Keep the worktree until its work is no longer needed.
 
 Never mark work complete while a required validation command fails. Do not weaken, skip, or delete a test merely to make validation pass.
 
