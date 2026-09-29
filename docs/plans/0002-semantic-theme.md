@@ -33,7 +33,7 @@ Proposed public seam, pending confirmation before the first test: a theme prefer
 ## Acceptance criteria
 
 - [x] System follows device appearance; Light and Dark override it.
-- [ ] Choice survives relaunch and colors tabs, navigation, and all three destinations consistently.
+- [x] Choice survives relaunch and colors tabs, navigation, and all three destinations consistently. (Verified on iOS 26.5 and 18.6 simulators.)
 - [x] Both palettes use the same semantic token names and meet accessible contrast for text and controls.
 - [x] Settings choices have clear labels, selected state, and 44-point targets.
 - [x] Failed preference reads fall back to System; failed writes show a recoverable error without claiming success.
@@ -52,8 +52,8 @@ Proposed public seam, pending confirmation before the first test: a theme prefer
 - [x] `bun run test:unit`
 - [x] `bun run test:integration`
 - [x] `bun run validate`
-- [ ] Full diff self-review
-- [ ] Documentation updated
+- [x] Full diff self-review
+- [x] Documentation updated
 
 ## Rollback and risks
 
@@ -63,6 +63,8 @@ The preference is reversible and defaults to System. CSS and native navigation c
 
 - Seam as proposed: `createThemePreference(store)` in `src/theme/theme-preference.ts` (`load`, `save`, `resolve`), tested with `src/testing/in-memory-preference-store.ts`.
 - Persistence uses `expo-sqlite/kv-store` (no new package). `src/global.css` mirrors `src/theme/tokens.ts`; a unit test fails on drift.
-- Not yet verified on a device or simulator: relaunch persistence and native tab colors. The "choice survives relaunch and colors tabs" criterion stays open until then.
 - Review follow-ups: saves are sequenced so only the latest can revert the UI. The `biome.json` override disables `noDuplicateCustomProperties` for `src/global.css` only, because `@variant` blocks redeclare each token. Dark palette values, `onAccent`, and `destructive` are new design decisions to confirm with the product owner. Splash and app icon colors are untouched (out of scope).
 - Settings is a list; Appearance is a separate pushed screen (`src/app/settings/` stack). Verified on the iOS 26.5 simulator, including persistence across a kill and relaunch.
+- Final UI state: shared primitives in `src/ui/` (`Screen`, `ListRow`, `IconBadge`, `EmptyState`); flat icon-badge rows instead of cards; softer palette. Tab bar is the native Liquid Glass bar on iOS 26+ and the custom animated JS bar elsewhere (`src/theme/glass-capability.ts`).
+- Tried and abandoned: a custom animated bar on a `GlassView` surface (Telegram-style icon animation on iOS 26). The layout broke and native tabs cannot animate icons. Follow-up ticket tracks a native-module approach.
+- Not verified: the bounce animation was not observed in motion, System following a live device appearance change, and web navigation.
