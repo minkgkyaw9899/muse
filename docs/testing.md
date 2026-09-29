@@ -9,6 +9,7 @@ Lefthook runs Biome on staged JavaScript, TypeScript, JSON, and CSS before each 
 | Unit | `bun run test:unit` | `tests/unit/` | Exported domain or utility behavior |
 | Integration | `bun run test:integration` | `tests/integration/` | Application and Expo configuration seams |
 | Rendered UI | `bun run test:ui` | `tests/ui/` | Visible React Native behavior via React Native Testing Library |
+| Native host | `bun run test:native` | `tests/native/` | The C inspection wrapper against real MuPDF: plain, AddressSanitizer, UBSan, ThreadSanitizer, and `leaks` (macOS only; not part of `validate`) |
 | Installed app | `bun run test:e2e` | `.maestro/` | iOS simulator behavior via Maestro |
 
 Jest uses the SDK 57 `jest-expo` preset. React Native Testing Library 14 uses async `render`, so await the result before querying. Keep assertions on visible content or accessible controls. The initial UI and Maestro flows exercise the starter app only to prove the harness; replace them with Library and Reader flows as those screens are built.

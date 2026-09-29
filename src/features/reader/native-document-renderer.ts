@@ -72,19 +72,28 @@ function toResult(reply: unknown): InspectionResult {
   return internal('invalid_native_response');
 }
 
-/** Adapts the native module to the DocumentRenderer seam and enforces its error contract. */
+/**
+ * Adapts the native module to the DocumentRenderer seam and enforces its error contract.
+ * Operation ids must be unique per operation. Cancellation is forwarded only for operations that
+ * are still running, so the native side never holds a cancel for an id that will not come back.
+ */
 export function createNativeDocumentRenderer(native: NativeRendererModule): DocumentRenderer {
+  const inFlight = new Set<string>();
+
   return {
     async inspect({ uri, operationId, limits }) {
+      inFlight.add(operationId);
       try {
         return toResult(await native.inspectAsync(uri, operationId, limits?.maxBytes ?? null));
       } catch {
         // The thrown message may contain a path or content, so it is dropped.
         return internal('native_exception');
+      } finally {
+        inFlight.delete(operationId);
       }
     },
     cancel(operationId) {
-      native.cancel(operationId);
+      if (inFlight.has(operationId)) native.cancel(operationId);
     },
   };
 }

@@ -19,7 +19,7 @@ describe('native document renderer adapter', () => {
     expect(result).toEqual({ ok: true, inspection: { pageCount: 42, fingerprint: FINGERPRINT } });
   });
 
-  it('passes the request to the native module and forwards cancellation', async () => {
+  it('passes the request and byte limit to the native module', async () => {
     const native = nativeModule({ status: 'ok', pageCount: 1, fingerprint: FINGERPRINT });
     const renderer = createNativeDocumentRenderer(native);
 
@@ -28,10 +28,35 @@ describe('native document renderer adapter', () => {
       operationId: 'op-2',
       limits: { maxBytes: 5000 },
     });
-    renderer.cancel('op-2');
 
     expect(native.inspectAsync).toHaveBeenCalledWith('file:///owned/a.pdf', 'op-2', 5000);
-    expect(native.cancel).toHaveBeenCalledWith('op-2');
+  });
+
+  it('forwards cancellation of an operation that is still running', async () => {
+    let finish: (reply: unknown) => void = () => {};
+    const native = {
+      inspectAsync: jest.fn().mockReturnValue(new Promise((resolve) => (finish = resolve))),
+      cancel: jest.fn(),
+    };
+    const renderer = createNativeDocumentRenderer(native);
+
+    const pending = renderer.inspect({ uri: 'file:///owned/a.pdf', operationId: 'op-run' });
+    renderer.cancel('op-run');
+    finish({ status: 'error', code: 'cancelled' });
+
+    expect(native.cancel).toHaveBeenCalledWith('op-run');
+    expect(await pending).toMatchObject({ ok: false, error: { category: 'cancelled' } });
+  });
+
+  it('does not forward cancellation of unknown or finished operations', async () => {
+    const native = nativeModule({ status: 'ok', pageCount: 1, fingerprint: FINGERPRINT });
+    const renderer = createNativeDocumentRenderer(native);
+
+    renderer.cancel('never-started');
+    await renderer.inspect({ uri: 'file:///owned/a.pdf', operationId: 'op-done' });
+    renderer.cancel('op-done');
+
+    expect(native.cancel).not.toHaveBeenCalled();
   });
 
   it.each([

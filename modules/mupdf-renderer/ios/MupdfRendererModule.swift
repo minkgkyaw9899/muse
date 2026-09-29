@@ -1,8 +1,8 @@
 import ExpoModulesCore
 import Foundation
 
-/// Spike: exposes `inspectAsync` per the module contract in `native-document-renderer.ts`.
-/// Cancellation and bounded concurrency are added test-first in later slices.
+/// Exposes `inspectAsync` and `cancel` per the module contract in `native-document-renderer.ts`.
+/// Cancellation, the concurrency bound, and cleanup live in `MuseInspect.c`, where the host tests cover them.
 public class MupdfRendererModule: Module {
   public func definition() -> ModuleDefinition {
     Name("MupdfRenderer")
@@ -12,7 +12,7 @@ public class MupdfRendererModule: Module {
         return ["status": "error", "code": "file_missing"]
       }
       var result = MuseInspection()
-      muse_inspect(url.path, maxBytes.map { Int64($0) } ?? -1, &result)
+      muse_inspect(operationId, url.path, maxBytes.map { Int64($0) } ?? -1, &result)
 
       if result.ok == 0 {
         let code = withUnsafePointer(to: &result.code) {
@@ -27,7 +27,7 @@ public class MupdfRendererModule: Module {
     }
 
     Function("cancel") { (operationId: String) in
-      // Spike: no-op until cancellation is implemented test-first.
+      muse_cancel(operationId)
     }
   }
 }
