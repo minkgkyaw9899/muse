@@ -4,7 +4,8 @@
 # MuPDF is AGPL-3.0 and must not ship until docs/adr/0001-mupdf-native-renderer.md accepts a path.
 # Without this framework the module compiles as a stub, so preview and production builds carry no MuPDF.
 #
-# Usage: scripts/build-mupdf.sh            download the pinned archive, verify, build
+# Usage: scripts/build-mupdf.sh            download the pinned archive, verify, build the xcframework
+#        scripts/build-mupdf.sh --host     build only the macOS library used by scripts/test-native.sh
 #        MUPDF_TARBALL=/path/to.tar.gz scripts/build-mupdf.sh   use a local copy (still verified)
 set -euo pipefail
 
@@ -59,6 +60,17 @@ build_slice() { # name sdk min-flag
   libtool -static -o "$WORK/$name/libmupdf-all.a" \
     "$SRC/build/release/libmupdf.a" "$SRC/build/release/libmupdf-third.a" 2> >(grep -v "has no symbols" >&2 || true)
 }
+
+if [ "${1:-}" = "--host" ]; then
+  rm -rf "$SRC/build"
+  make -C "$SRC" -j"$(sysctl -n hw.ncpu)" build=release \
+    HAVE_GLUT=no HAVE_X11=no HAVE_LIBCRYPTO=no HAVE_CURL=no USE_SYSTEM_LIBS=no libs
+  mkdir -p "$WORK/host"
+  libtool -static -o "$WORK/host/libmupdf-all.a" \
+    "$SRC/build/release/libmupdf.a" "$SRC/build/release/libmupdf-third.a" 2> >(grep -v "has no symbols" >&2 || true)
+  echo "Built $WORK/host/libmupdf-all.a (MuPDF $VERSION, macOS)"
+  exit 0
+fi
 
 build_slice device iphoneos -miphoneos-version-min
 build_slice sim iphonesimulator -mios-simulator-version-min

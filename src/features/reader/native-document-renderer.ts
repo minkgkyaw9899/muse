@@ -24,6 +24,10 @@ const KNOWN_CODES: Record<string, { category: RendererErrorCategory; message: st
     category: 'internal',
     message: 'Muse could not find this file. Try importing it again.',
   },
+  renderer_unavailable: {
+    category: 'internal',
+    message: 'Reading PDFs is not available in this build of Muse.',
+  },
   io_error: { category: 'internal', message: 'Muse could not read this file. Please try again.' },
 };
 

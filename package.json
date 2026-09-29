@@ -67,7 +67,8 @@
     "test:integration": "jest --runInBand --no-watchman --testPathPattern=/tests/integration/",
     "test:ui": "jest --runInBand --no-watchman --testPathPattern=/tests/ui/",
     "test:e2e": "maestro test .maestro",
-    "validate": "bun run typecheck && bun run test && bun run check"
+    "validate": "bun run typecheck && bun run test && bun run check",
+    "test:native": "./scripts/test-native.sh"
   },
   "jest": {
     "preset": "jest-expo",
