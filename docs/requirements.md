@@ -46,7 +46,7 @@ Muse is a private, ad-free, offline-first reading app whose primary advantage is
 ### Appearance
 
 - Provide Settings for System, Light, and Dark app themes. Reader-specific reading mode and page background controls become functional with the Reader; planned page background choices are Automatic, Light, Dark, and Woody.
-- Tab bar: active tab uses a filled, bold icon in the accent color and a short bounce on selection (skipped under Reduce Motion). This is a custom JS tab bar, not the native iOS tab bar, so it does not adopt Liquid Glass automatically.
+- Tab bar: on iOS 26+ (both `isLiquidGlassAvailable()` and `isGlassEffectAPIAvailable()` true) use the native Liquid Glass tab bar with filled active icons. Elsewhere use the custom JS tab bar: filled, bold active icon in the accent color and a short bounce on selection (skipped under Reduce Motion). Both share the same routes, labels, and tokens.
 - Selection in lists is shown with icons (leading option icon, trailing check), not text labels; back buttons are icon-only.
 - Provide About and Share actions when their content is ready. Terms & Conditions requires approved text, and Rate us requires a store listing destination.
 - Use a clean, restrained interface following an approximate 60/30/10 distribution:

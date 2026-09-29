@@ -21,8 +21,8 @@ export function AppearanceScreen() {
 
   return (
     <ScrollView className="flex-1 bg-canvas" contentInsetAdjustmentBehavior="automatic">
-      <View className="gap-4 p-4">
-        <View accessibilityRole="radiogroup" className="overflow-hidden rounded-2xl bg-surface">
+      <View className="gap-4 px-5 py-2">
+        <View accessibilityRole="radiogroup">
           {themePreferences.map((option, index) => {
             const selected = option === preference;
             return (
@@ -32,32 +32,38 @@ export function AppearanceScreen() {
                 accessibilityLabel={THEME_LABELS[option]}
                 accessibilityState={{ selected, checked: selected }}
                 onPress={() => setPreference(option)}
-                className={`min-h-11 flex-row items-center gap-3 px-4 ${
-                  index > 0 ? 'border-t border-separator' : ''
-                }`}
+                className="min-h-20 flex-row items-center gap-4"
               >
-                <SymbolView
-                  name={THEME_ICONS[option]}
-                  tintColor={selected ? tokens.accent : tokens.mutedText}
-                  size={22}
-                />
-                <Text className={`flex-1 text-base ${selected ? 'font-semibold' : ''} text-text`}>
-                  {THEME_LABELS[option]}
-                </Text>
-                {selected ? (
+                <View className="size-12 items-center justify-center rounded-full bg-surface">
                   <SymbolView
-                    name={{ ios: 'checkmark', android: 'check', web: 'check' }}
-                    weight="bold"
-                    tintColor={tokens.accent}
-                    size={18}
+                    name={THEME_ICONS[option]}
+                    tintColor={selected ? tokens.accent : tokens.mutedText}
+                    size={24}
                   />
-                ) : null}
+                </View>
+                <View
+                  className={`min-h-20 flex-1 flex-row items-center ${
+                    index > 0 ? 'border-separator border-t' : ''
+                  }`}
+                >
+                  <Text className={`flex-1 text-lg ${selected ? 'font-semibold' : ''} text-text`}>
+                    {THEME_LABELS[option]}
+                  </Text>
+                  {selected ? (
+                    <SymbolView
+                      name={{ ios: 'checkmark', android: 'check', web: 'check' }}
+                      weight="bold"
+                      tintColor={tokens.accent}
+                      size={22}
+                    />
+                  ) : null}
+                </View>
               </Pressable>
             );
           })}
         </View>
         {saveError ? (
-          <Text accessibilityRole="alert" className="text-base text-destructive">
+          <Text accessibilityRole="alert" className="text-lg text-destructive">
             Could not save your theme choice. Please try again.
           </Text>
         ) : null}

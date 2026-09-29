@@ -13,7 +13,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/theme/theme-provider';
 
-type SymbolName = SymbolViewProps['name'];
+type PlatformSymbols = Exclude<SymbolViewProps['name'], string>;
+
+/** A symbol with a name on every platform (SymbolView allows omitting some). */
+export type SymbolName = {
+  ios: NonNullable<PlatformSymbols['ios']>;
+  android: NonNullable<PlatformSymbols['android']>;
+  web: NonNullable<PlatformSymbols['web']>;
+};
 
 export type TabBarItem = {
   key: string;
@@ -46,7 +53,7 @@ function TabIcon({ item, active }: { item: TabBarItem; active: boolean }) {
         name={active ? item.icon.active : item.icon.inactive}
         weight={active ? 'bold' : 'regular'}
         tintColor={active ? tokens.accent : tokens.mutedText}
-        size={26}
+        size={28}
       />
     </Animated.View>
   );
@@ -66,7 +73,7 @@ export function TabBarView({
   return (
     <View
       accessibilityRole="tablist"
-      className="flex-row border-separator border-t bg-canvas px-2 pt-2"
+      className="flex-row border-separator border-t bg-canvas px-2 pt-3"
       style={{ paddingBottom: Math.max(insets.bottom, 8) }}
     >
       {items.map((item) => {
@@ -78,10 +85,10 @@ export function TabBarView({
             accessibilityLabel={item.label}
             accessibilityState={{ selected: active }}
             onPress={() => onSelect(item.key)}
-            className="min-h-11 flex-1 items-center justify-center gap-1"
+            className="min-h-14 flex-1 items-center justify-center gap-1 py-1"
           >
             <TabIcon item={item} active={active} />
-            <Text className={`text-xs ${active ? 'font-semibold text-accent' : 'text-muted-text'}`}>
+            <Text className={`text-sm ${active ? 'font-semibold text-accent' : 'text-muted-text'}`}>
               {item.label}
             </Text>
           </Pressable>

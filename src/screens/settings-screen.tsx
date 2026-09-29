@@ -10,25 +10,32 @@ export function SettingsScreen({ onOpenAppearance }: { onOpenAppearance: () => v
 
   return (
     <ScrollView className="flex-1 bg-canvas" contentInsetAdjustmentBehavior="automatic">
-      <View className="p-4">
-        <View className="overflow-hidden rounded-2xl bg-surface">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Appearance, ${value}`}
-            onPress={onOpenAppearance}
-            className="min-h-11 flex-row items-center justify-between px-4"
-          >
-            <Text className="text-base text-text">Appearance</Text>
+      <View className="px-5 py-2">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Appearance, ${value}`}
+          onPress={onOpenAppearance}
+          className="min-h-20 flex-row items-center gap-4"
+        >
+          <View className="size-12 items-center justify-center rounded-full bg-surface">
+            <SymbolView
+              name={{ ios: 'paintpalette', android: 'palette', web: 'palette' }}
+              tintColor={tokens.accent}
+              size={24}
+            />
+          </View>
+          <View className="min-h-20 flex-1 flex-row items-center justify-between">
+            <Text className="text-lg text-text">Appearance</Text>
             <View className="flex-row items-center gap-2">
-              <Text className="text-base text-muted-text">{value}</Text>
+              <Text className="text-lg text-muted-text">{value}</Text>
               <SymbolView
                 name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
                 tintColor={tokens.mutedText}
-                size={14}
+                size={16}
               />
             </View>
-          </Pressable>
-        </View>
+          </View>
+        </Pressable>
       </View>
     </ScrollView>
   );
