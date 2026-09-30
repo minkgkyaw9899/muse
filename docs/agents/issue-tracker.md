@@ -5,7 +5,7 @@ Muse tracks specs and implementation tickets in GitHub Issues and groups the cur
 ## Ticket lifecycle
 
 1. Before starting a ticket, read its body, blockers, and comments. Work only when blockers are closed.
-2. Mark the ticket in progress when implementation begins, and create its branch with `gh issue develop <n> --name <feature/name> --base develop`. The ticket's Development panel then lists the branch from the start. Set the ticket's Release channel and Sprint as well.
+2. Mark the ticket in progress when implementation begins, and create its branch with `gh issue develop <n> --name <feature/name> --base develop`. Name it `feature/<name>` or `codex/<name>`: the `branch-policy` check rejects any other head branch for a PR into `develop`. The ticket's Development panel then lists the branch from the start. Set the ticket's Release channel and Sprint as well.
 3. Post a concise progress comment when a completed slice or material decision changes the ticket's state. Keep acceptance criteria accurate.
 4. Open the PR with the [pull request checklist](#pull-request-checklist) complete and update the project status to In Review. Keep the ticket open while the PR is open or if it closes without merging.
 5. Close the ticket after the PR merges, its acceptance criteria pass, and Muse's required validation is green. Update the GitHub Project to done.
