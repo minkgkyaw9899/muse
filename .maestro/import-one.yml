@@ -1,0 +1,47 @@
+appId: com.minkgkyaw9899.muse
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Your library is empty'
+- tapOn: 'Import PDF'
+- assertVisible: 'Browse'
+- tapOn: 'Browse'
+- runFlow:
+    when:
+      notVisible:
+        id: 'Muse Import Fixture, pdf'
+    commands:
+      - tapOn:
+          id: 'DOC.sidebar.item.On My iPhone'
+          point: '90%,50%'
+          retryTapIfNoChange: true
+- assertVisible:
+    id: 'Muse Import Fixture, pdf'
+- tapOn:
+    id: 'Muse Import Fixture, pdf'
+    point: '50%,25%'
+    retryTapIfNoChange: true
+- assertVisible: 'Muse Import Fixture was imported.'
+- assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
+- stopApp
+- launchApp
+- assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
+- tapOn: 'Import PDF'
+- tapOn: 'Browse'
+- runFlow:
+    when:
+      notVisible:
+        id: 'Muse Import Fixture, pdf'
+    commands:
+      - tapOn:
+          id: 'DOC.sidebar.item.On My iPhone'
+          point: '90%,50%'
+          retryTapIfNoChange: true
+- assertVisible:
+    id: 'Muse Import Fixture, pdf'
+- tapOn:
+    id: 'Muse Import Fixture, pdf'
+    point: '50%,25%'
+    retryTapIfNoChange: true
+- assertVisible: 'Already in Library. Your existing publication is unchanged.'
+- assertVisible: 'Muse Import Fixture, 2 pages, imported.*'

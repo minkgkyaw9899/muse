@@ -136,6 +136,25 @@ jobs:
           } >> "$GITHUB_ENV"
           ccache --zero-stats
 
+      - name: Build pinned MuPDF for simulator import tests
+        if: steps.plan.outputs.run_build == 'true'
+        run: scripts/build-mupdf.sh
+
+      - name: Boot iPhone simulator
+        if: steps.plan.outputs.run_build == 'true'
+        run: |
+          DEVICE_ID=$(xcrun simctl create 'Muse E2E' com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro com.apple.CoreSimulator.SimRuntime.iOS-26-5)
+          xcrun simctl boot "$DEVICE_ID"
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          echo "MAESTRO_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
+
+      # The pinned MuPDF framework contains an arm64 simulator slice, not x86_64.
+      - name: Select arm64 simulator architecture
+        if: steps.plan.outputs.run_build == 'true'
+        run: |
+          printf 'ARCHS = arm64\n' > "$RUNNER_TEMP/muse-sim-arm64.xcconfig"
+          echo "XCODE_XCCONFIG_FILE=$RUNNER_TEMP/muse-sim-arm64.xcconfig" >> "$GITHUB_ENV"
+
       - name: Build standalone iOS simulator app
         if: steps.plan.outputs.run_build == 'true'
         id: build
@@ -163,14 +182,11 @@ jobs:
         if: steps.plan.outputs.run_build == 'true' && always()
         run: ccache --show-stats || true
 
-      - name: Boot iPhone simulator
+      - name: Install app and seed Files fixture
         if: steps.plan.outputs.run_build == 'true'
         run: |
-          DEVICE_ID=$(xcrun simctl create 'Muse E2E' com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro com.apple.CoreSimulator.SimRuntime.iOS-26-5)
-          xcrun simctl boot "$DEVICE_ID"
-          xcrun simctl bootstatus "$DEVICE_ID" -b
-          xcrun simctl install "$DEVICE_ID" /tmp/muse-e2e-build/Muse.app
-          echo "MAESTRO_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
+          xcrun simctl install "$MAESTRO_DEVICE_ID" /tmp/muse-e2e-build/Muse.app
+          scripts/seed-ios-files-fixture.sh "$MAESTRO_DEVICE_ID"
 
       - name: Run Maestro flows
         if: steps.plan.outputs.run_build == 'true'

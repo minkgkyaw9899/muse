@@ -11,7 +11,11 @@ async function renderInTheme(ui: React.ReactElement) {
 
 describe('empty states', () => {
   it('Library has one screen title and explains that it is empty', async () => {
-    await renderInTheme(<LibraryScreen />);
+    await renderInTheme(
+      <LibraryScreen
+        library={{ list: async () => [], importOne: async () => ({ status: 'cancelled' }) }}
+      />,
+    );
     expect(screen.getAllByRole('header').map((h) => h.props.children)).toEqual(['Library']);
     expect(screen.getByText('Your library is empty')).toBeTruthy();
     expect(screen.getByText('Publications you import will appear here.')).toBeTruthy();
