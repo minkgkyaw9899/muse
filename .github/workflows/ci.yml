@@ -44,8 +44,19 @@ jobs:
         with:
           bun-version: 1.4.2
 
+      - name: Cache Bun packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ vars.NATIVE_CACHE_VERSION || 'v1' }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-${{ vars.NATIVE_CACHE_VERSION || 'v1' }}-
+
+      # If a restored cache is corrupt, clear it and install again once.
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        env:
+          LEFTHOOK: '0'
+        run: bun install --frozen-lockfile || (bun pm cache rm && bun install --frozen-lockfile)
 
       - name: Validate
         run: bun run validate

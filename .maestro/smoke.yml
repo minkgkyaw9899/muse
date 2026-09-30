@@ -2,6 +2,10 @@ appId: com.minkgkyaw9899.muse
 ---
 - launchApp:
     clearState: true
-- assertVisible: 'Welcome to.*Expo'
-- tapOn: Explore
-- assertVisible: 'This starter app includes example.*'
+- assertVisible: 'Your library is empty'
+- tapOn: Favorites
+- assertVisible: 'No favorites yet'
+- tapOn: Settings
+- tapOn: 'Appearance.*'
+- tapOn: Dark
+- assertVisible: Dark

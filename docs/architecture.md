@@ -108,7 +108,11 @@ Selected files are untrusted. Impose size/resource limits, contain parser failur
 
 ## UI architecture
 
-Use semantic tokens (`canvas`, `surface`, `accent`, `text`, `mutedText`, `separator`) backed by the product palette. UI modules consume tokens, not hex values.
+Use semantic tokens (`canvas`, `surface`, `accent`, `onAccent`, `text`, `mutedText`, `separator`, `destructive`) defined once in `src/theme/tokens.ts` for light and dark. `src/global.css` mirrors them for Uniwind classes, and `tests/unit/theme-tokens.test.ts` fails if the two drift. UI modules consume tokens, not hex values. The theme preference (System, Light, Dark) persists through `expo-sqlite/kv-store` behind the `createThemePreference` seam.
+
+Shared primitives live in `src/ui/`: `Screen` (canvas, large title, gutters), `ListRow` (icon badge, title, value, chevron or check), `IconBadge`, and `EmptyState`. Screens compose these instead of styling ad hoc. Design rules: body text uses `text` or `mutedText` (both meet 4.5:1), the accent color is reserved for icons and selection marks (3:1 non-text), rows are at least 80 points tall with an 8-point-grid inset divider, and every tab root uses the same large title.
+
+The tab bar follows the same capability rule: `resolveTabBarKind` in `src/theme/glass-capability.ts` selects the native Liquid Glass tab bar on iOS 26+ and the custom JS tab bar elsewhere.
 
 `GlassSurface` is a capability adapter with two adapters:
 

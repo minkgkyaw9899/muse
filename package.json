@@ -73,11 +73,16 @@
   },
   "jest": {
     "preset": "jest-expo",
-    "moduleNameMapper": {
-      "\\.css$": "<rootDir>/tests/support/style-mock.js"
-    },
     "transformIgnorePatterns": [
-      "node_modules/(?!(.bun|(jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg))"
+      "node_modules/(?!(.bun|(jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|uniwind|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg))"
+    ],
+    "moduleNameMapper": {
+      "\\.css$": "<rootDir>/tests/support/style-mock.js",
+      "^@/assets/(.*)$": "<rootDir>/assets/$1",
+      "^@/(.*)$": "<rootDir>/src/$1"
+    },
+    "setupFiles": [
+      "<rootDir>/jest.setup.ts"
     ]
   },
   "private": true

@@ -1,22 +1,30 @@
 import { PortalHost } from '@rn-primitives/portal';
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { ThemeProvider as NavigationThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
+import { ThemeProvider, useAppTheme } from '@/theme/theme-provider';
 
 import '../global.css';
 
 SplashScreen.preventAutoHideAsync();
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+function Shell() {
+  const { navigationTheme } = useAppTheme();
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <NavigationThemeProvider value={navigationTheme}>
       <AnimatedSplashOverlay />
       <AppTabs />
       <PortalHost />
+    </NavigationThemeProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <Shell />
     </ThemeProvider>
   );
 }

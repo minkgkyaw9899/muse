@@ -1,33 +1,78 @@
+import { Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { useColorScheme } from 'react-native';
 
-import { Colors } from '@/constants/theme';
+import { detectTabBarKind } from '@/theme/glass-capability';
+import { useAppTheme } from '@/theme/theme-provider';
 
-export default function AppTabs() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+import { type TabBarItem, TabBarView } from './tab-bar';
+
+const TABS: TabBarItem[] = [
+  {
+    key: 'index',
+    label: 'Library',
+    icon: {
+      inactive: { ios: 'books.vertical', android: 'library_books', web: 'library_books' },
+      active: { ios: 'books.vertical.fill', android: 'library_books', web: 'library_books' },
+    },
+  },
+  {
+    key: 'favorites',
+    label: 'Favorites',
+    icon: {
+      inactive: { ios: 'heart', android: 'favorite', web: 'favorite' },
+      active: { ios: 'heart.fill', android: 'favorite', web: 'favorite' },
+    },
+  },
+  {
+    key: 'settings',
+    label: 'Settings',
+    icon: {
+      inactive: { ios: 'gearshape', android: 'settings', web: 'settings' },
+      active: { ios: 'gearshape.fill', android: 'settings', web: 'settings' },
+    },
+  },
+];
+
+const tabBarKind = detectTabBarKind();
+
+/** iOS 26+: native Liquid Glass tab bar. Otherwise: the custom JS tab bar with identical routes. */
+function GlassTabs() {
+  const { tokens } = useAppTheme();
 
   return (
     <NativeTabs
-      backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}
+      tintColor={tokens.accent}
+      labelStyle={{ default: { color: tokens.mutedText }, selected: { color: tokens.text } }}
     >
-      <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/home.png')}
-          renderingMode="template"
-        />
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="explore">
-        <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
-          renderingMode="template"
-        />
-      </NativeTabs.Trigger>
+      {TABS.map((tab) => (
+        <NativeTabs.Trigger key={tab.key} name={tab.key}>
+          <NativeTabs.Trigger.Label>{tab.label}</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Icon
+            sf={{ default: tab.icon.inactive.ios, selected: tab.icon.active.ios }}
+            md={tab.icon.inactive.android}
+          />
+        </NativeTabs.Trigger>
+      ))}
     </NativeTabs>
+  );
+}
+
+export default function AppTabs() {
+  if (tabBarKind === 'glass') return <GlassTabs />;
+  return (
+    <Tabs
+      screenOptions={{ headerShown: false }}
+      tabBar={({ state, navigation }) => (
+        <TabBarView
+          items={TABS}
+          activeKey={state.routes[state.index]?.name ?? 'index'}
+          onSelect={(key) => navigation.navigate(key)}
+        />
+      )}
+    >
+      {TABS.map((tab) => (
+        <Tabs.Screen key={tab.key} name={tab.key} options={{ title: tab.label }} />
+      ))}
+    </Tabs>
   );
 }
