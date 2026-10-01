@@ -201,8 +201,13 @@ jobs:
             xcrun simctl spawn "$MAESTRO_DEVICE_ID" log show --last 20m --style compact --predicate 'process == "Muse"' | tail -n 150 || true
             echo "::endgroup::"
           }
-          maestro test --udid "$MAESTRO_DEVICE_ID" --exclude-tags=large .maestro || { status=$?; diagnose; }
-          # The 143 MB fixture slows the Files provider, so only the tagged cancellation flow sees it.
-          scripts/seed-ios-files-fixture.sh "$MAESTRO_DEVICE_ID" --large
-          maestro test --udid "$MAESTRO_DEVICE_ID" --include-tags=large .maestro || { status=$?; diagnose; }
+          # Run each flow alone so a failure prints its own error and diagnostics. Flows tagged
+          # `large` race a real 143 MB import against a UI tap, so they run locally, not here.
+          for flow in .maestro/*.yml; do
+            if grep -q '^  - large$' "$flow"; then
+              echo "Skipping $flow (tagged large)"
+              continue
+            fi
+            maestro test --udid "$MAESTRO_DEVICE_ID" "$flow" || { status=1; diagnose; }
+          done
           exit "$status"
