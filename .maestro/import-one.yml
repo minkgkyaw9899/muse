@@ -25,10 +25,17 @@ appId: com.minkgkyaw9899.muse
     id: 'Muse Import Fixture, pdf'
     point: '50%,25%'
     retryTapIfNoChange: true
-- tapOn: 'Open'
-- extendedWaitUntil:
-    visible: 'Muse Import Fixture.*was imported.*'
-    timeout: 120000
+- retry:
+    maxRetries: 4
+    commands:
+      - runFlow:
+          when:
+            visible: 'Open'
+          commands:
+            - tapOn: 'Open'
+      - extendedWaitUntil:
+          visible: 'Muse Import Fixture.*was imported.*'
+          timeout: 30000
 - assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
 - stopApp
 - launchApp
@@ -54,8 +61,15 @@ appId: com.minkgkyaw9899.muse
     id: 'Muse Import Fixture, pdf'
     point: '50%,25%'
     retryTapIfNoChange: true
-- tapOn: 'Open'
-- extendedWaitUntil:
-    visible: 'Muse Import Fixture.*Already in Library.*'
-    timeout: 120000
+- retry:
+    maxRetries: 4
+    commands:
+      - runFlow:
+          when:
+            visible: 'Open'
+          commands:
+            - tapOn: 'Open'
+      - extendedWaitUntil:
+          visible: 'Muse Import Fixture.*Already in Library.*'
+          timeout: 30000
 - assertVisible: 'Muse Import Fixture, 2 pages, imported.*'

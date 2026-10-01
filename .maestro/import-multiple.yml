@@ -18,19 +18,24 @@ appId: com.minkgkyaw9899.muse
           id: 'DOC.sidebar.item.On My iPhone'
           point: '90%,50%'
           retryTapIfNoChange: true
+# The seeded folder holds exactly the three files under test. "Select All" appears once one item
+# is selected, and one item tap plus one toolbar tap is steadier than three item taps on a slow picker.
 - tapOn:
     id: 'Muse Import Fixture, pdf'
     point: '50%,25%'
-- tapOn:
-    id: 'Muse Duplicate Fixture, pdf'
-    point: '50%,25%'
-- tapOn:
-    id: 'Muse Damaged Fixture, pdf'
-    point: '50%,25%'
-- tapOn: 'Open'
-- extendedWaitUntil:
-    visible: 'Import finished.*'
-    timeout: 120000
+    retryTapIfNoChange: true
+- tapOn: 'Select All'
+- retry:
+    maxRetries: 4
+    commands:
+      - runFlow:
+          when:
+            visible: 'Open'
+          commands:
+            - tapOn: 'Open'
+      - extendedWaitUntil:
+          visible: 'Import finished.*'
+          timeout: 30000
 - assertVisible: 'Muse Damaged Fixture.*Choose another copy.*'
 - assertVisible: '.*Already in Library.*'
 - assertVisible: '.*was imported.*'
