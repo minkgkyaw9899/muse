@@ -193,4 +193,16 @@ jobs:
         env:
           MAESTRO_CLI_NO_ANALYTICS: '1'
           MAESTRO_DRIVER_STARTUP_TIMEOUT: '120000'
-        run: maestro test --udid "$MAESTRO_DEVICE_ID" .maestro
+        run: |
+          status=0
+          diagnose() {
+            echo "::group::Failure diagnostics (screen hierarchy, then Muse log)"
+            maestro --udid "$MAESTRO_DEVICE_ID" hierarchy --compact | head -c 20000 || true
+            xcrun simctl spawn "$MAESTRO_DEVICE_ID" log show --last 20m --style compact --predicate 'process == "Muse"' | tail -n 150 || true
+            echo "::endgroup::"
+          }
+          maestro test --udid "$MAESTRO_DEVICE_ID" --exclude-tags=large .maestro || { status=$?; diagnose; }
+          # The 143 MB fixture slows the Files provider, so only the tagged cancellation flow sees it.
+          scripts/seed-ios-files-fixture.sh "$MAESTRO_DEVICE_ID" --large
+          maestro test --udid "$MAESTRO_DEVICE_ID" --include-tags=large .maestro || { status=$?; diagnose; }
+          exit "$status"

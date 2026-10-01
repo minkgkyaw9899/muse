@@ -1,4 +1,6 @@
 appId: com.minkgkyaw9899.muse
+tags:
+  - large
 ---
 - launchApp:
     clearState: true
