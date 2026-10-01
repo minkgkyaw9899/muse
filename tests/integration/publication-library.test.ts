@@ -17,6 +17,7 @@ function createAdapters() {
     files,
     released,
     picker: {
+      pickMany: async () => [],
       pickOne: async () => ({
         ...picked,
         dispose: async () => {

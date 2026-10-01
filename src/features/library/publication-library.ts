@@ -42,7 +42,10 @@ export type PickedPublication = {
 type OwnedFile = { uri: string; relativePath: string; byteSize?: number };
 
 export type PublicationLibraryDependencies = {
-  picker: { pickOne(): Promise<PickedPublication | null> };
+  picker: {
+    pickOne(): Promise<PickedPublication | null>;
+    pickMany(): Promise<PickedPublication[]>;
+  };
   fileStore: {
     stage(
       source: PickedPublication,
@@ -64,12 +67,36 @@ export type PublicationLibraryDependencies = {
   ids: { next(): string };
 };
 
+export type FileImportResult = {
+  /** Selection index keeps equal filenames distinguishable and results in picker order. */
+  index: number;
+  sourceFilename: string;
+  result: ImportResult;
+};
+
+export type ImportProgress = {
+  completed: number;
+  total: number;
+  /** Present only after this file's outcome and cleanup have settled. */
+  file?: FileImportResult;
+};
+
+export type BatchImportResult =
+  | { status: 'completed' | 'cancelled'; results: FileImportResult[] }
+  | Extract<ImportResult, { status: 'error' }>;
+
 export type PublicationLibrary = {
   list(): Promise<Publication[]>;
   importOne(options?: { signal?: AbortSignal }): Promise<ImportResult>;
+  importMany(options?: {
+    signal?: AbortSignal;
+    onProgress?: (progress: ImportProgress) => void;
+  }): Promise<BatchImportResult>;
 };
 
 export const MAX_IMPORT_BYTES = 2 * 1024 * 1024 * 1024;
+/** Files copied, inspected and admitted at once; bounds aggregate memory and I/O. */
+export const MAX_ACTIVE_IMPORTS = 2;
 
 const inspectionMessages: Record<Exclude<RendererErrorCategory, 'cancelled'>, string> = {
   passwordRequired: 'This PDF is password protected. Choose an unlocked PDF to import.',
@@ -140,6 +167,7 @@ export function createPublicationLibrary({
 }: PublicationLibraryDependencies): PublicationLibrary {
   let ready: Promise<void> | null = null;
   let importing = false;
+  let admission = Promise.resolve();
 
   function ensureReady(): Promise<void> {
     if (!ready) {
@@ -155,72 +183,75 @@ export function createPublicationLibrary({
     return ready;
   }
 
-  return {
-    async list() {
-      await ensureReady();
-      return repository.list();
-    },
-    async importOne(options) {
-      if (importing) {
-        return {
-          status: 'error',
-          error: { category: 'busy', message: 'An import is already in progress.' },
-        };
-      }
-      importing = true;
-      const pending: {
-        selected?: PickedPublication;
-        staged?: Required<OwnedFile>;
-        promoted?: OwnedFile;
-      } = {};
-      const result: ImportResult = await (async (): Promise<ImportResult> => {
+  function busy(): Extract<ImportResult, { status: 'error' }> {
+    return {
+      status: 'error',
+      error: { category: 'busy', message: 'An import is already in progress.' },
+    };
+  }
+
+  async function importSelected(
+    selected: PickedPublication,
+    options?: { signal?: AbortSignal },
+  ): Promise<ImportResult> {
+    const pending: {
+      selected?: PickedPublication;
+      staged?: Required<OwnedFile>;
+      promoted?: OwnedFile;
+    } = {};
+    const result: ImportResult = await (async (): Promise<ImportResult> => {
+      try {
+        pending.selected = selected;
+        if (options?.signal?.aborted) return { status: 'cancelled' };
+        if (selected.size !== undefined && selected.size > MAX_IMPORT_BYTES) {
+          return {
+            status: 'error',
+            error: {
+              category: 'resourceLimit',
+              message: inspectionMessages.resourceLimit,
+            },
+          };
+        }
+        const id = ids.next();
+        const operationId = `import-${id}`;
+        pending.staged = await fileStore.stage(selected, operationId, options?.signal);
+        if (options?.signal?.aborted) return { status: 'cancelled' };
+        const cancel = () => renderer.cancel(operationId);
+        options?.signal?.addEventListener('abort', cancel, { once: true });
+        if (options?.signal?.aborted) cancel();
+        let inspection: InspectionResult;
         try {
-          await ensureReady();
-          const selected = await picker.pickOne();
-          if (!selected) return { status: 'cancelled' };
-          pending.selected = selected;
-          if (options?.signal?.aborted) return { status: 'cancelled' };
-          if (selected.size !== undefined && selected.size > MAX_IMPORT_BYTES) {
-            return {
-              status: 'error',
-              error: {
-                category: 'resourceLimit',
-                message: inspectionMessages.resourceLimit,
-              },
-            };
-          }
-          const id = ids.next();
-          const operationId = `import-${id}`;
-          pending.staged = await fileStore.stage(selected, operationId, options?.signal);
-          if (options?.signal?.aborted) return { status: 'cancelled' };
-          const cancel = () => renderer.cancel(operationId);
-          options?.signal?.addEventListener('abort', cancel, { once: true });
-          if (options?.signal?.aborted) cancel();
-          let inspection: InspectionResult;
-          try {
-            inspection = await renderer.inspect({
-              uri: pending.staged.uri,
-              operationId,
-              limits: { maxBytes: MAX_IMPORT_BYTES },
-            });
-          } finally {
-            options?.signal?.removeEventListener('abort', cancel);
-          }
-          if (!inspection.ok) {
-            if (inspection.error.category === 'cancelled') return { status: 'cancelled' };
-            return {
-              status: 'error',
-              error: {
-                category: inspection.error.category,
-                message:
-                  inspection.error.code === 'renderer_unavailable'
-                    ? 'This version of Muse cannot import PDFs. Update Muse to a version with PDF support.'
-                    : inspection.error.code === 'too_many_operations'
-                      ? 'Muse is busy with other PDFs. Wait a moment and try again.'
-                      : inspectionMessages[inspection.error.category],
-              },
-            };
-          }
+          inspection = await renderer.inspect({
+            uri: pending.staged.uri,
+            operationId,
+            limits: { maxBytes: MAX_IMPORT_BYTES },
+          });
+        } finally {
+          options?.signal?.removeEventListener('abort', cancel);
+        }
+        if (options?.signal?.aborted) return { status: 'cancelled' };
+        if (!inspection.ok) {
+          if (inspection.error.category === 'cancelled') return { status: 'cancelled' };
+          return {
+            status: 'error',
+            error: {
+              category: inspection.error.category,
+              message:
+                inspection.error.code === 'renderer_unavailable'
+                  ? 'This version of Muse cannot import PDFs. Update Muse to a version with PDF support.'
+                  : inspection.error.code === 'too_many_operations'
+                    ? 'Muse is busy with other PDFs. Wait a moment and try again.'
+                    : inspectionMessages[inspection.error.category],
+            },
+          };
+        }
+        const previous = admission;
+        let release!: () => void;
+        admission = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        await previous;
+        try {
           if (options?.signal?.aborted) return { status: 'cancelled' };
           const existing = await repository.findByFingerprint(inspection.inspection.fingerprint);
           if (existing) return { status: 'duplicate', publication: existing };
@@ -263,37 +294,111 @@ export function createPublicationLibrary({
           }
           pending.promoted = undefined;
           return { status: 'imported', publication };
-        } catch (error) {
-          return adapterFailure(error);
+        } finally {
+          release();
         }
-      })();
-      let cleanupFailed = false;
-      for (const file of [pending.staged, pending.promoted]) {
-        if (!file) continue;
-        try {
-          await fileStore.remove(file.relativePath);
-        } catch {
-          cleanupFailed = true;
-        }
+      } catch (error) {
+        return adapterFailure(error);
       }
-      if (pending.selected) {
-        try {
-          await pending.selected.dispose();
-        } catch {
-          // Cache cleanup is retried at startup; a committed publication remains valid.
-        }
+    })();
+    let cleanupFailed = false;
+    for (const file of [pending.staged, pending.promoted]) {
+      if (!file) continue;
+      try {
+        await fileStore.remove(file.relativePath);
+      } catch {
+        cleanupFailed = true;
       }
-      importing = false;
-      if (cleanupFailed) {
-        return {
-          status: 'error',
-          error: {
-            category: 'storage',
-            message: 'Muse could not finish cleaning up this import. Please try again.',
-          },
+    }
+    if (pending.selected) {
+      try {
+        await pending.selected.dispose();
+      } catch {
+        // Cache cleanup is retried at startup; a committed publication remains valid.
+      }
+    }
+    if (cleanupFailed) {
+      return {
+        status: 'error',
+        error: {
+          category: 'storage',
+          message: 'Muse could not finish cleaning up this import. Please try again.',
+        },
+      };
+    }
+    return result;
+  }
+
+  return {
+    async list() {
+      await ensureReady();
+      return repository.list();
+    },
+    async importOne(options) {
+      if (importing) return busy();
+      importing = true;
+      try {
+        if (options?.signal?.aborted) return { status: 'cancelled' };
+        await ensureReady();
+        if (options?.signal?.aborted) return { status: 'cancelled' };
+        const selected = await picker.pickOne();
+        return selected ? await importSelected(selected, options) : { status: 'cancelled' };
+      } catch (error) {
+        return adapterFailure(error);
+      } finally {
+        importing = false;
+      }
+    },
+    async importMany(options) {
+      if (importing) return busy();
+      importing = true;
+      try {
+        if (options?.signal?.aborted) return { status: 'cancelled', results: [] };
+        await ensureReady();
+        if (options?.signal?.aborted) return { status: 'cancelled', results: [] };
+        const selected = await picker.pickMany();
+        const results: FileImportResult[] = new Array(selected.length);
+        let next = 0;
+        let completed = 0;
+        const publish = (file?: FileImportResult) => {
+          try {
+            options?.onProgress?.({ completed, total: selected.length, file });
+          } catch {
+            // A caller observing progress cannot change a durable import's outcome.
+          }
         };
+        publish();
+        async function worker() {
+          while (next < selected.length) {
+            const index = next++;
+            const source = selected[index];
+            const file = {
+              index,
+              sourceFilename: source.name,
+              result: await importSelected(source, options),
+            };
+            results[index] = file;
+            completed += 1;
+            publish(file);
+          }
+        }
+        await Promise.all(
+          Array.from({ length: Math.min(MAX_ACTIVE_IMPORTS, selected.length) }, worker),
+        );
+        return {
+          // An abort that lands after every file settled does not retroactively cancel the batch.
+          status:
+            selected.length === 0 || results.some((file) => file.result.status === 'cancelled')
+              ? 'cancelled'
+              : 'completed',
+          results,
+        };
+      } catch (error) {
+        const failure = adapterFailure(error);
+        return failure.status === 'error' ? failure : { status: 'cancelled', results: [] };
+      } finally {
+        importing = false;
       }
-      return result;
     },
   };
 }

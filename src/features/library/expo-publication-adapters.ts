@@ -52,32 +52,33 @@ function pickerCacheFile(uri: string): File | null {
 }
 
 export function createExpoPublicationPicker(): PublicationLibraryDependencies['picker'] {
+  async function pick(multiple: boolean): Promise<PickedPublication[]> {
+    let result: DocumentPicker.DocumentPickerResult;
+    try {
+      result = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        multiple,
+        copyToCacheDirectory: true,
+        base64: false,
+      });
+    } catch {
+      throw new LibraryAdapterError('permissionDenied');
+    }
+    if (result.canceled) return [];
+    return result.assets.map((asset) => ({
+      uri: asset.uri,
+      name: asset.name,
+      mimeType: asset.mimeType,
+      size: asset.size,
+      async dispose() {
+        const copied = pickerCacheFile(asset.uri);
+        if (copied?.exists) copied.delete();
+      },
+    }));
+  }
   return {
-    async pickOne(): Promise<PickedPublication | null> {
-      let result: DocumentPicker.DocumentPickerResult;
-      try {
-        result = await DocumentPicker.getDocumentAsync({
-          type: 'application/pdf',
-          multiple: false,
-          copyToCacheDirectory: true,
-        });
-      } catch {
-        throw new LibraryAdapterError('permissionDenied');
-      }
-      if (result.canceled) return null;
-      const asset = result.assets[0];
-      if (!asset) return null;
-      return {
-        uri: asset.uri,
-        name: asset.name,
-        mimeType: asset.mimeType,
-        size: asset.size,
-        async dispose() {
-          const copied = pickerCacheFile(asset.uri);
-          if (copied?.exists) copied.delete();
-        },
-      };
-    },
+    pickOne: async () => (await pick(false))[0] ?? null,
+    pickMany: () => pick(true),
   };
 }
 

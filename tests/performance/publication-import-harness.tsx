@@ -59,6 +59,7 @@ async function benchmark() {
         };
         const library = createPublicationLibrary({
           picker: {
+            pickMany: async () => [],
             pickOne: async () => ({
               uri: input.uri,
               name: fixture,

@@ -3,7 +3,7 @@ appId: com.minkgkyaw9899.muse
 - launchApp:
     clearState: true
 - assertVisible: 'Your library is empty'
-- tapOn: 'Import PDF'
+- tapOn: 'Import PDFs'
 - assertVisible: 'Browse'
 - tapOn: 'Browse'
 - runFlow:
@@ -21,12 +21,13 @@ appId: com.minkgkyaw9899.muse
     id: 'Muse Import Fixture, pdf'
     point: '50%,25%'
     retryTapIfNoChange: true
-- assertVisible: 'Muse Import Fixture was imported.'
+- tapOn: 'Open'
+- assertVisible: 'Muse Import Fixture.*was imported.*'
 - assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
 - stopApp
 - launchApp
 - assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
-- tapOn: 'Import PDF'
+- tapOn: 'Import PDFs'
 - tapOn: 'Browse'
 - runFlow:
     when:
@@ -43,5 +44,6 @@ appId: com.minkgkyaw9899.muse
     id: 'Muse Import Fixture, pdf'
     point: '50%,25%'
     retryTapIfNoChange: true
-- assertVisible: 'Already in Library. Your existing publication is unchanged.'
+- tapOn: 'Open'
+- assertVisible: 'Muse Import Fixture.*Already in Library.*'
 - assertVisible: 'Muse Import Fixture, 2 pages, imported.*'

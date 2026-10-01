@@ -27,7 +27,7 @@ scripts/seed-ios-files-fixture.sh <SIMULATOR_UDID>
 maestro test --udid <SIMULATOR_UDID> .maestro
 ```
 
-The seeding script puts `valid-2-pages.pdf` in the simulator's On My iPhone Files provider under the display name `Muse Import Fixture.pdf`; it does not expose Muse's private document directory. The GitHub `iOS Maestro E2E` workflow performs the same build and flows on feature PRs to `develop`, using Xcode 26.6 and an iOS 26.5 simulator. It downloads Maestro 2.10.0 with a checked SHA-256. A local Xcode 27 build passed both flows on iOS 26.5, including import on a fresh simulator; the iOS 27 simulator timed out starting Maestro's XCUITest driver, so do not switch CI to iOS 27 without revalidating it. Routine feature work uses local Xcode and GitHub Actions; EAS development and preview builds are available when a beta distribution needs them.
+The seeding script puts four fixtures in the simulator's On My iPhone Files provider: `Muse Import Fixture.pdf` (the valid two-page PDF), `Muse Duplicate Fixture.pdf` (identical bytes), `Muse Damaged Fixture.pdf`, and a generated 143 MB `Muse Large Fixture.pdf`; it does not expose Muse's private document directory. The GitHub `iOS Maestro E2E` workflow performs the same build and flows on feature PRs to `develop`, using Xcode 26.6 and an iOS 26.5 simulator. It downloads Maestro 2.10.0 with a checked SHA-256. A local Xcode 27 build passed both flows on iOS 26.5, including import on a fresh simulator; the iOS 27 simulator timed out starting Maestro's XCUITest driver, so do not switch CI to iOS 27 without revalidating it. Routine feature work uses local Xcode and GitHub Actions; EAS development and preview builds are available when a beta distribution needs them.
 
 ## Local import benchmark
 
@@ -52,3 +52,11 @@ These changes were validated for YAML syntax only. Measure the first runs on Git
 ## Native inspection benchmark
 
 `bun run bench:native` (macOS only) generates large fixtures under `.cache/fixtures` and prints latency and memory per fixture as a markdown table. Results are recorded in `docs/performance/`. The MuPDF build and the tests in `tests/integration/mupdf-gate.test.ts` keep MuPDF out of preview and production builds; see ADR 0001.
+
+## Multiple-publication import
+
+`tests/integration/publication-batch-import.test.ts` exercises `PublicationLibrary.importMany()` with in-memory adapters: mixed outcomes, a two-file resource bound, progress, duplicate admission during a pending write, cancellation, cleanup, recovery after a write failure, overlapping requests and picker failures. `tests/ui/library-import.test.tsx` covers progress, independent results, cancellation preserving completed rows, and stale completion after unmount through `LibraryScreen`.
+
+`scripts/seed-ios-files-fixture.sh <SIMULATOR_UDID>` seeds a valid two-page PDF, an identical PDF under another filename, a damaged PDF, and a generated 143 MB scan into On My iPhone. Maestro's `import-one.yml` verifies one selection and relaunch/duplicate admission; `import-multiple.yml` selects all three and verifies mixed per-file results and the durable publication after relaunch. `import-cancel.yml` cancels a large copy after its small companion commits, then verifies the cancelled result and the companion after relaunch. Navigation smoke remains applicable.
+
+On a disposable simulator, `scripts/bench-publication-batch.sh <BOOTED_SIMULATOR_UDID>` compares sequential imports with the two-worker batch using the same two-page, 143 MB scan and 100,000-page fixtures. It temporarily installs the benchmark route, restores the source on exit, and verifies three durable rows/files with no staging files after each run. Rebuild the normal app afterward. Stage-level single-file measurements remain in `scripts/bench-publication-import.sh`. Batch latency and RSS results are not yet recorded in `docs/performance/`; make no performance claim for batch import until they are.

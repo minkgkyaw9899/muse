@@ -1,0 +1,34 @@
+appId: com.minkgkyaw9899.muse
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Your library is empty'
+- tapOn: 'Import PDFs'
+- tapOn: 'Browse'
+- runFlow:
+    when:
+      notVisible:
+        id: 'Muse Import Fixture, pdf'
+    commands:
+      - tapOn:
+          id: 'DOC.sidebar.item.On My iPhone'
+          point: '90%,50%'
+          retryTapIfNoChange: true
+- tapOn:
+    id: 'Muse Import Fixture, pdf'
+    point: '50%,25%'
+- tapOn:
+    id: 'Muse Large Fixture, pdf'
+    point: '50%,25%'
+- tapOn: 'Open'
+- assertVisible: '1 of 2 files completed'
+- tapOn: 'Cancel import'
+- assertVisible: 'Import cancelled.*'
+- assertVisible: 'Muse Large Fixture.*Cancelled.*'
+- scrollUntilVisible:
+    element: 'Muse Import Fixture, 2 pages, imported.*'
+    direction: DOWN
+- stopApp
+- launchApp
+- assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
+- assertNotVisible: 'Muse Large Fixture, 100 pages, imported.*'

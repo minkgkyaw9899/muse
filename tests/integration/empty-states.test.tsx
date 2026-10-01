@@ -13,7 +13,11 @@ describe('empty states', () => {
   it('Library has one screen title and explains that it is empty', async () => {
     await renderInTheme(
       <LibraryScreen
-        library={{ list: async () => [], importOne: async () => ({ status: 'cancelled' }) }}
+        library={{
+          list: async () => [],
+          importOne: async () => ({ status: 'cancelled' }),
+          importMany: async () => ({ status: 'cancelled', results: [] }),
+        }}
       />,
     );
     expect(screen.getAllByRole('header').map((h) => h.props.children)).toEqual(['Library']);

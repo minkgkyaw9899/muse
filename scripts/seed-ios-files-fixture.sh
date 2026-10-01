@@ -15,4 +15,10 @@ GROUP_PATH="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.unquote(u
 DESTINATION="$GROUP_PATH/File Provider Storage/Muse Import Fixture.pdf"
 mkdir -p "$(dirname "$DESTINATION")"
 rsync "$FIXTURE" "$DESTINATION"
-echo "Seeded Muse Import Fixture.pdf in simulator Files"
+rsync "$FIXTURE" "$GROUP_PATH/File Provider Storage/Muse Duplicate Fixture.pdf"
+rsync "$ROOT/tests/fixtures/pdf/corrupt-header-only.pdf" "$GROUP_PATH/File Provider Storage/Muse Damaged Fixture.pdf"
+if [ ! -f "$ROOT/.cache/fixtures/scan-100p-150mb.pdf" ]; then
+  bun "$ROOT/scripts/generate-pdf-fixtures.ts" "$ROOT/.cache/fixtures"
+fi
+rsync "$ROOT/.cache/fixtures/scan-100p-150mb.pdf" "$GROUP_PATH/File Provider Storage/Muse Large Fixture.pdf"
+echo "Seeded valid, duplicate, damaged, and large Muse fixtures in simulator Files"

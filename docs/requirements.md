@@ -26,7 +26,7 @@ Muse is a private, ad-free, offline-first reading app whose primary advantage is
 - Rename only the displayed title; leave the owned PDF filename unchanged.
 - Support multi-selection, Select all for the currently visible filtered list, and removal with a confirmation that states the number of publications affected.
 - Provide a Favorites tab with the same compact rows, title search, opening, and unfavorite actions. A favorite marks a publication, not a page bookmark.
-- Make the primary Library action open the system Files picker for multiple PDFs, with visible progress and per-file duplicate or failure results.
+- Make the primary Library action open the system Files picker for multiple PDFs, with completed-file progress and independent success, duplicate, cancellation, or actionable failure results. Bound active imports and allow cancellation while preserving completed publications.
 - Store title, source filename, byte size, page count, import date, last-opened date, reading position, and a stable content fingerprint.
 - Show import, validation, duplicate, missing-file, corrupt-file, encrypted-file, and unsupported-file states.
 - Remove a publication and its derived cache without affecting other publications.
