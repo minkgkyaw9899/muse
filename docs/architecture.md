@@ -106,6 +106,8 @@ Use the system document picker with `copyToCacheDirectory: true`, validate type 
 
 Selected files are untrusted. Impose size/resource limits, contain parser failures, avoid logging paths or publication text, and make cleanup idempotent.
 
+The first Library slice (#6) exposes `PublicationLibrary.list()` and `importOne()` to screens. Its adapters use the system picker, 256 KiB cancellable copy chunks into `staging/`, the existing native inspection seam, and SQLite schema version 1. The admission cap is 2 GiB. Metadata stores a relative `publications/` path and a unique SHA-256 fingerprint. An identical PDF returns the existing publication; it does not retain a second source. A valid staged file is promoted before its metadata insert. The picker's app-cache copy is released on every result, with stale cache copies cleared at startup. Startup reconciliation also removes staging files and unreferenced promoted files, while preserving files referenced by committed rows. If a database write has an uncertain outcome, the Library preserves the source until that reconciliation can safely decide.
+
 ## UI architecture
 
 Use semantic tokens (`canvas`, `surface`, `accent`, `onAccent`, `text`, `mutedText`, `separator`, `destructive`) defined once in `src/theme/tokens.ts` for light and dark. `src/global.css` mirrors them for Uniwind classes, and `tests/unit/theme-tokens.test.ts` fails if the two drift. UI modules consume tokens, not hex values. The theme preference (System, Light, Dark) persists through `expo-sqlite/kv-store` behind the `createThemePreference` seam.
