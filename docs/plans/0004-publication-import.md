@@ -81,3 +81,12 @@ A reader can choose one PDF from Files, then see its title, page count, and impo
 ## Risks and rollback
 
 The filesystem and SQLite cannot share a transaction; idempotent startup reconciliation protects against interruption between promotion and commit. A unique fingerprint protects duplicate admission under concurrent imports. Large picker and copy operations can fill storage, so all temporary bytes need deterministic cleanup and actionable errors. MuPDF is local-build only until ADR 0001 accepts a distribution path. This slice creates schema version 1; migration from a later schema is not needed yet, and rollback removes the feature code and its unshipped schema before release.
+
+## PR #21 review follow-up (2026-10-01)
+
+- Reuse the owner-approved `PublicationLibrary.importOne()` / `list()` test seam.
+- Reproduce the rejection of a valid inspected PDF with an extensionless provider name, then remove filename-based admission. Preserve the original source filename and trim the displayed title before removing a final PDF suffix. Verify non-PDF content still fails inspection and cleans up.
+- Check the cache-root finding against pinned `expo-document-picker` 57.0.2 native source and the installed simulator: its iOS and Android implementations both use the `DocumentPicker` cache child. Retain the scoped cleanup; deleting arbitrary cache-root files is unwarranted.
+- Run focused integration tests red/green, typecheck, lint and full validation; rebuild the local Release app and run import/relaunch/duplicate Maestro. Review both axes, commit and push the correction, then reply to the review threads with evidence. Broader performance and security work remains separate.
+
+Follow-up evidence: both new Library-seam regressions were observed red before their fixes. `bun run lint` and final `bun run validate` passed (47 unit, 68 integration, 9 UI: 124 tests). The rebuilt Release app passed `import-one.yml` on Muse Fresh Import, iOS 26.5, including relaunch and duplicate admission. Storage readback confirmed one two-page row, one owned PDF, no staging PDFs, and no picker-cache files. Standards and Spec reviews each reported zero remaining findings. PR #21's Development panel now links issue #6, verified in the UI and `closingIssuesReferences`.

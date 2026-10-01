@@ -121,7 +121,12 @@ function adapterFailure(error: unknown): ImportResult {
 }
 
 function displayTitle(filename: string): string {
-  return filename.replace(/\.pdf$/i, '').trim() || 'Untitled publication';
+  return (
+    filename
+      .trim()
+      .replace(/\.pdf$/i, '')
+      .trim() || 'Untitled publication'
+  );
 }
 
 /** One application-facing seam. Picker, file ownership, renderer, and metadata writes stay inside. */
@@ -175,12 +180,6 @@ export function createPublicationLibrary({
           if (!selected) return { status: 'cancelled' };
           pending.selected = selected;
           if (options?.signal?.aborted) return { status: 'cancelled' };
-          if (!selected.name.toLowerCase().endsWith('.pdf')) {
-            return {
-              status: 'error',
-              error: { category: 'unsupported', message: 'Choose a PDF file to import.' },
-            };
-          }
           if (selected.size !== undefined && selected.size > MAX_IMPORT_BYTES) {
             return {
               status: 'error',

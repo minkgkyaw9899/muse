@@ -215,6 +215,37 @@ describe('import failures', () => {
 });
 
 describe('untrusted picker metadata', () => {
+  it('imports an inspected PDF with an extensionless provider name', async () => {
+    const adapters = createAdapters();
+    adapters.picker.pickOne = async () => ({
+      ...picked,
+      name: 'Field Notes',
+      dispose: async () => {},
+    });
+    const library = createPublicationLibrary(adapters);
+
+    expect(await library.importOne()).toMatchObject({
+      status: 'imported',
+      publication: { title: 'Field Notes', sourceFilename: 'Field Notes' },
+    });
+    expect(await library.list()).toHaveLength(1);
+  });
+
+  it('trims provider whitespace before removing the PDF suffix from the displayed title', async () => {
+    const adapters = createAdapters();
+    adapters.picker.pickOne = async () => ({
+      ...picked,
+      name: '  Field Notes.PDF  ',
+      dispose: async () => {},
+    });
+    const result = await createPublicationLibrary(adapters).importOne();
+
+    expect(result).toMatchObject({
+      status: 'imported',
+      publication: { title: 'Field Notes', sourceFilename: '  Field Notes.PDF  ' },
+    });
+  });
+
   it('stores the copied file size instead of trusting the picker-reported size', async () => {
     const adapters = createAdapters();
     adapters.fileStore.stage = async () => {
