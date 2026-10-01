@@ -56,7 +56,7 @@ Confirmed by the owner on 2026-10-01, before the first new test: public `Publica
 
 - [x] Focused tests and regular typecheck.
 - [x] `bun run lint`, `bun run typecheck`, unit, integration and UI suites.
-- [ ] Relevant Maestro flows on installed local simulator build (blocked: `maestro` CLI not installed locally; the CI `iOS Maestro E2E` workflow runs them).
+- [x] Relevant Maestro flows on installed local simulator build: 4/4 passed on a used and on a fresh iOS 26.5 simulator with Maestro 2.10.0.
 - [x] `bun run validate`.
 - [ ] Two-axis code-review against base `4321664`, documentation updated, commit to current feature branch.
 

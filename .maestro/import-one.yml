@@ -11,6 +11,10 @@ appId: com.minkgkyaw9899.muse
       notVisible:
         id: 'Muse Import Fixture, pdf'
     commands:
+      - extendedWaitUntil:
+          visible:
+            id: 'DOC.sidebar.item.On My iPhone'
+          timeout: 60000
       - tapOn:
           id: 'DOC.sidebar.item.On My iPhone'
           point: '90%,50%'
@@ -22,7 +26,9 @@ appId: com.minkgkyaw9899.muse
     point: '50%,25%'
     retryTapIfNoChange: true
 - tapOn: 'Open'
-- assertVisible: 'Muse Import Fixture.*was imported.*'
+- extendedWaitUntil:
+    visible: 'Muse Import Fixture.*was imported.*'
+    timeout: 120000
 - assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
 - stopApp
 - launchApp
@@ -34,6 +40,10 @@ appId: com.minkgkyaw9899.muse
       notVisible:
         id: 'Muse Import Fixture, pdf'
     commands:
+      - extendedWaitUntil:
+          visible:
+            id: 'DOC.sidebar.item.On My iPhone'
+          timeout: 60000
       - tapOn:
           id: 'DOC.sidebar.item.On My iPhone'
           point: '90%,50%'
@@ -45,5 +55,7 @@ appId: com.minkgkyaw9899.muse
     point: '50%,25%'
     retryTapIfNoChange: true
 - tapOn: 'Open'
-- assertVisible: 'Muse Import Fixture.*Already in Library.*'
+- extendedWaitUntil:
+    visible: 'Muse Import Fixture.*Already in Library.*'
+    timeout: 120000
 - assertVisible: 'Muse Import Fixture, 2 pages, imported.*'

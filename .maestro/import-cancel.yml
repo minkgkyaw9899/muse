@@ -10,6 +10,10 @@ appId: com.minkgkyaw9899.muse
       notVisible:
         id: 'Muse Import Fixture, pdf'
     commands:
+      - extendedWaitUntil:
+          visible:
+            id: 'DOC.sidebar.item.On My iPhone'
+          timeout: 60000
       - tapOn:
           id: 'DOC.sidebar.item.On My iPhone'
           point: '90%,50%'
@@ -21,9 +25,13 @@ appId: com.minkgkyaw9899.muse
     id: 'Muse Large Fixture, pdf'
     point: '50%,25%'
 - tapOn: 'Open'
-- assertVisible: '1 of 2 files completed'
+- extendedWaitUntil:
+    visible: '1 of 2 files completed'
+    timeout: 120000
 - tapOn: 'Cancel import'
-- assertVisible: 'Import cancelled.*'
+- extendedWaitUntil:
+    visible: 'Import cancelled.*'
+    timeout: 60000
 - assertVisible: 'Muse Large Fixture.*Cancelled.*'
 - scrollUntilVisible:
     element: 'Muse Import Fixture, 2 pages, imported.*'

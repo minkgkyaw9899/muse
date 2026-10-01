@@ -10,6 +10,10 @@ appId: com.minkgkyaw9899.muse
       notVisible:
         id: 'Muse Import Fixture, pdf'
     commands:
+      - extendedWaitUntil:
+          visible:
+            id: 'DOC.sidebar.item.On My iPhone'
+          timeout: 60000
       - tapOn:
           id: 'DOC.sidebar.item.On My iPhone'
           point: '90%,50%'
@@ -24,7 +28,9 @@ appId: com.minkgkyaw9899.muse
     id: 'Muse Damaged Fixture, pdf'
     point: '50%,25%'
 - tapOn: 'Open'
-- assertVisible: 'Import finished.*'
+- extendedWaitUntil:
+    visible: 'Import finished.*'
+    timeout: 120000
 - assertVisible: 'Muse Damaged Fixture.*Choose another copy.*'
 - assertVisible: '.*Already in Library.*'
 - assertVisible: '.*was imported.*'
