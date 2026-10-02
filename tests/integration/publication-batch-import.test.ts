@@ -294,3 +294,20 @@ it('does not reopen Files when cancellation arrives during Library startup', asy
   finishStartup();
   expect(await pending).toEqual({ status: 'cancelled', results: [] });
 });
+
+it('explains how to recover when the installed app lacks native import support', async () => {
+  const { adapters, files } = createBatchAdapters();
+  adapters.picker.pickMany = async () => {
+    throw { category: 'unavailable' };
+  };
+  await expect(createPublicationLibrary(adapters).importMany()).resolves.toEqual({
+    status: 'error',
+    error: {
+      category: 'unavailable',
+      message:
+        'This version of Muse cannot import PDFs. Update Muse to a version with PDF support.',
+    },
+  });
+  expect(await adapters.repository.list()).toEqual([]);
+  expect(files.size).toBe(0);
+});

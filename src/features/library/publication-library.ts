@@ -25,7 +25,7 @@ export type ImportResult =
   | {
       status: 'error';
       error: {
-        category: RendererErrorCategory | 'permissionDenied' | 'storage' | 'busy';
+        category: RendererErrorCategory | 'permissionDenied' | 'storage' | 'busy' | 'unavailable';
         message: string;
       };
     };
@@ -35,7 +35,7 @@ export type PickedPublication = {
   name: string;
   mimeType?: string;
   size?: number;
-  /** Releases the picker's temporary copy; never deletes the provider's original. */
+  /** Releases temporary selection ownership; never deletes the provider's original. */
   dispose(): Promise<void>;
 };
 
@@ -110,7 +110,8 @@ export type LibraryAdapterErrorCategory =
   | 'permissionDenied'
   | 'resourceLimit'
   | 'cancelled'
-  | 'storage';
+  | 'storage'
+  | 'unavailable';
 
 /** Adapters report a safe category; their native exception text never crosses the Library seam. */
 export class LibraryAdapterError extends Error {
@@ -126,6 +127,16 @@ function adapterFailure(error: unknown): ImportResult {
       ? (error as { category: unknown }).category
       : 'storage';
   if (category === 'cancelled') return { status: 'cancelled' };
+  if (category === 'unavailable') {
+    return {
+      status: 'error',
+      error: {
+        category,
+        message:
+          'This version of Muse cannot import PDFs. Update Muse to a version with PDF support.',
+      },
+    };
+  }
   if (category === 'permissionDenied') {
     return {
       status: 'error',
