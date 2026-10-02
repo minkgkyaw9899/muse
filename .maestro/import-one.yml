@@ -34,9 +34,8 @@ appId: com.minkgkyaw9899.muse
           commands:
             - runFlow: helpers/open-selection.yml
       - extendedWaitUntil:
-          visible: 'Muse Import Fixture.*was imported.*'
+          visible: 'Muse Import Fixture, 2 pages, imported.*'
           timeout: 30000
-- assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
 - stopApp
 - launchApp
 - assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
@@ -61,15 +60,24 @@ appId: com.minkgkyaw9899.muse
     file: helpers/select-file.yml
     env:
       FILE_ID: 'Muse Import Fixture, pdf'
-- retry:
-    maxRetries: 4
-    commands:
-      - runFlow:
-          when:
-            visible: 'Open'
-          commands:
-            - runFlow: helpers/open-selection.yml
-      - extendedWaitUntil:
-          visible: 'Muse Import Fixture.*Already in Library.*'
-          timeout: 30000
+- runFlow:
+    file: helpers/open-selection-toast.yml
+    env:
+      TOAST: '.*Already in Library.*'
 - assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
+
+# Search is a separate native iOS 26 tab; it reloads the Library after import.
+- tapOn: Search
+- tapOn: Search Library
+- inputText: mUsE
+- assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
+- eraseText
+- inputText: missing
+- assertVisible: No matching publications
+- assertNotVisible: 'Muse Import Fixture, 2 pages, imported.*'
+- eraseText
+- assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
+# iOS 26 labels the integrated search dismiss control "Close".
+- tapOn: Close
+- tapOn: Library
+- assertVisible: Import PDFs

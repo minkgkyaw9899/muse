@@ -3,26 +3,28 @@ import {
   AccessibilityInfo,
   ActivityIndicator,
   FlatList,
+  Keyboard,
   Platform,
   Pressable,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
-import { createExpoPublicationLibrary } from '@/features/library/expo-publication-adapters';
+import { getAppLibrary } from '@/features/library/app-library';
 import type {
   FileImportResult,
   Publication,
   PublicationLibrary,
 } from '@/features/library/publication-library';
+import { detectTabBarKind } from '@/theme/glass-capability';
+import { useAppTheme } from '@/theme/theme-provider';
 import { EmptyState } from '@/ui/empty-state';
-import { describeImportResult } from './import-result-message';
+import { HeaderAction } from '@/ui/header-action';
+import { useToast } from '@/ui/toast';
+import { summarizeImport } from './import-result-message';
 
-let appLibrary: PublicationLibrary | null = null;
-function defaultLibrary(): PublicationLibrary {
-  appLibrary ??= createExpoPublicationLibrary();
-  return appLibrary;
-}
+const headerSearchAvailable = detectTabBarKind() === 'fallback';
 
 function formatImportDate(isoDate: string): string {
   return new Intl.DateTimeFormat(undefined, {
@@ -49,55 +51,41 @@ function PublicationRow({ publication }: { publication: Publication }) {
   );
 }
 
-type LibraryRow =
-  | { kind: 'publication'; publication: Publication }
-  | { kind: 'result'; file: FileImportResult }
-  | { kind: 'heading'; title: string };
-
-function ImportResultRow({ file }: { file: FileImportResult }) {
-  return (
-    <View
-      accessible
-      accessibilityLabel={`${file.sourceFilename}, ${describeImportResult(file.result)}`}
-      className="min-h-20 justify-center gap-1 py-3"
-    >
-      <Text className="font-semibold text-base text-text">{file.sourceFilename}</Text>
-      <Text className="text-base text-muted-text">{describeImportResult(file.result)}</Text>
-      <View className="absolute right-0 bottom-0 left-2 border-separator border-b" />
-    </View>
-  );
-}
-
 /** The route injects the production Library; tests can supply the same public interface. */
-export function LibraryScreen({ library: suppliedLibrary }: { library?: PublicationLibrary }) {
+export function LibraryScreen({
+  library: suppliedLibrary,
+  searchQuery = '',
+  searchOnly = false,
+}: {
+  library?: PublicationLibrary;
+  searchQuery?: string;
+  searchOnly?: boolean;
+}) {
+  const { tokens } = useAppTheme();
+  const toast = useToast();
+  const [searching, setSearching] = useState(false);
+  const [localQuery, setLocalQuery] = useState('');
   const libraryRef = useRef<PublicationLibrary | null>(null);
-  libraryRef.current ??= suppliedLibrary ?? defaultLibrary();
+  libraryRef.current ??= suppliedLibrary ?? getAppLibrary();
   const library = libraryRef.current;
   const controller = useRef<AbortController | null>(null);
   const mounted = useRef(true);
-  const [fileResults, setFileResults] = useState<FileImportResult[]>([]);
-  const [progress, setProgress] = useState<{ completed: number; total: number } | null>(null);
-  const [cancelling, setCancelling] = useState(false);
   const [publications, setPublications] = useState<Publication[]>([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
 
-  const progressText = progress
-    ? `${progress.completed} of ${progress.total} files completed`
-    : 'Selecting PDFs…';
-
   useEffect(() => {
-    if (Platform.OS === 'ios') {
-      const announcement = message ?? (importing ? progressText : null);
-      if (announcement) AccessibilityInfo.announceForAccessibility(announcement);
-    }
-  }, [message, importing, progressText]);
+    if (Platform.OS === 'ios' && message) AccessibilityInfo.announceForAccessibility(message);
+  }, [message]);
 
   useEffect(() => {
     let active = true;
     mounted.current = true;
+    setLoading(true);
+    setLoadFailed(false);
+    setMessage(null);
     library
       .list()
       .then((listed) => {
@@ -119,18 +107,16 @@ export function LibraryScreen({ library: suppliedLibrary }: { library?: Publicat
     };
   }, [library]);
 
-  function acceptFile(file: FileImportResult) {
-    setFileResults((current) =>
-      [...current.filter((entry) => entry.index !== file.index), file].sort(
-        (a, b) => a.index - b.index,
-      ),
-    );
-    if (file.result.status === 'imported') {
-      const publication = file.result.publication;
-      setPublications((current) =>
-        current.some((entry) => entry.id === publication.id) ? current : [publication, ...current],
-      );
-    }
+  function addPublications(added: Publication[]) {
+    setPublications((current) => [
+      ...new Map(
+        [...added, ...current].map((publication) => [publication.id, publication]),
+      ).values(),
+    ]);
+  }
+
+  function importedPublication(file: FileImportResult): Publication[] {
+    return file.result.status === 'imported' ? [file.result.publication] : [];
   }
 
   async function onImport() {
@@ -138,153 +124,137 @@ export function LibraryScreen({ library: suppliedLibrary }: { library?: Publicat
     const abort = new AbortController();
     controller.current = abort;
     setImporting(true);
-    setCancelling(false);
-    setMessage(null);
-    setProgress(null);
-    setFileResults([]);
     try {
       const batch = await library.importMany({
         signal: abort.signal,
+        // Rows appear as each file completes; the outcome itself is reported once, in a toast.
         onProgress: (event) => {
           if (!mounted.current || controller.current !== abort) return;
-          setProgress({ completed: event.completed, total: event.total });
-          if (event.file) acceptFile(event.file);
+          if (event.file) addPublications(importedPublication(event.file));
         },
       });
       if (!mounted.current || controller.current !== abort) return;
       if (batch.status === 'error') {
-        setMessage(batch.error.message);
+        toast.show({ kind: 'error', message: batch.error.message });
       } else {
-        setFileResults(batch.results);
-        const imported = batch.results.flatMap((file) =>
-          file.result.status === 'imported' ? [file.result.publication] : [],
-        );
-        setPublications((current) => [
-          ...new Map(
-            [...imported, ...current].map((publication) => [publication.id, publication]),
-          ).values(),
-        ]);
-        setProgress({ completed: batch.results.length, total: batch.results.length });
-        setMessage(
-          batch.results.length === 0
-            ? null
-            : batch.results.length === 1
-              ? describeImportResult(batch.results[0].result)
-              : batch.status === 'cancelled'
-                ? 'Import cancelled. Completed publications remain in Library.'
-                : 'Import finished. Review each file’s result below.',
-        );
+        addPublications(batch.results.flatMap(importedPublication));
+        const summary = summarizeImport(batch.results);
+        if (summary) toast.show(summary);
       }
     } catch {
       if (mounted.current)
-        setMessage(
-          'Muse could not finish this import. Completed publications remain in Library. Please try again.',
-        );
+        toast.show({
+          kind: 'error',
+          message:
+            'Muse could not finish this import. Completed publications remain in Library. Please try again.',
+        });
     } finally {
       if (mounted.current) setImporting(false);
       if (controller.current === abort) controller.current = null;
     }
   }
 
-  function onCancel() {
-    setCancelling(true);
-    controller.current?.abort();
-  }
-
-  const rows: LibraryRow[] = [
-    ...(fileResults.length
-      ? [
-          { kind: 'heading' as const, title: 'Import results' },
-          ...fileResults.map((file) => ({ kind: 'result' as const, file })),
-        ]
-      : []),
-    ...(fileResults.length && publications.length
-      ? [{ kind: 'heading' as const, title: 'All publications' }]
-      : []),
-    ...publications.map((publication) => ({ kind: 'publication' as const, publication })),
-  ];
-
+  const query = (searchOnly ? searchQuery : localQuery).trim().toLocaleLowerCase();
+  const visiblePublications = publications.filter((publication) =>
+    publication.title.toLocaleLowerCase().includes(query),
+  );
+  // The list must be the screen's first child: iOS finds the tab's scroll view there to minimize the bar.
   return (
-    <View className="flex-1 bg-canvas">
-      <FlatList
-        data={rows}
-        keyExtractor={(row) =>
-          row.kind === 'publication'
-            ? `publication-${row.publication.id}`
-            : row.kind === 'result'
-              ? `result-${row.file.index}`
-              : row.title
-        }
-        contentInsetAdjustmentBehavior="automatic"
-        contentContainerClassName="grow px-5 pb-8"
-        ListHeaderComponent={
-          <View className="gap-3 pt-4 pb-3">
-            <Text accessibilityRole="header" className="font-bold text-4xl text-text">
-              Library
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Import PDFs"
-              accessibilityState={{ disabled: loading || loadFailed || importing }}
-              disabled={loading || loadFailed || importing}
-              onPress={() => {
-                void onImport();
-              }}
-              className="min-h-11 self-start justify-center rounded-xl bg-surface px-5 active:opacity-60"
-            >
-              <Text className="font-semibold text-base text-text">Import PDFs</Text>
-            </Pressable>
-            {importing ? (
-              <View className="gap-2" accessibilityLiveRegion="polite">
-                <View className="flex-row items-center gap-2">
-                  <ActivityIndicator colorClassName="accent-accent" />
-                  <Text className="flex-1 text-base text-muted-text">{progressText}</Text>
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Cancel import"
-                  accessibilityState={{ disabled: cancelling }}
-                  disabled={cancelling}
-                  onPress={onCancel}
-                  className="min-h-11 self-start justify-center rounded-xl bg-surface px-4 active:opacity-60"
-                >
-                  <Text className="font-semibold text-base text-text">
-                    {cancelling ? 'Cancelling…' : 'Cancel'}
-                  </Text>
-                </Pressable>
-              </View>
-            ) : null}
-            {message && fileResults.length !== 1 ? (
-              <Text accessibilityLiveRegion="polite" className="text-base text-muted-text">
-                {message}
+    <FlatList
+      className="flex-1 bg-canvas"
+      data={visiblePublications}
+      keyExtractor={(publication) => publication.id}
+      contentInsetAdjustmentBehavior="automatic"
+      contentContainerClassName="grow px-5 pb-8"
+      ListHeaderComponent={
+        <View className="gap-3 pt-4 pb-3">
+          {!searchOnly ? (
+            <View className="flex-row flex-wrap items-center justify-between gap-3">
+              <Text
+                accessibilityRole="header"
+                className="min-w-36 flex-1 font-bold text-4xl text-text"
+              >
+                Library
               </Text>
-            ) : null}
-          </View>
-        }
-        renderItem={({ item }) =>
-          item.kind === 'publication' ? (
-            <PublicationRow publication={item.publication} />
-          ) : item.kind === 'result' ? (
-            <ImportResultRow file={item.file} />
-          ) : (
-            <Text accessibilityRole="header" className="pt-4 pb-2 font-semibold text-xl text-text">
-              {item.title}
-            </Text>
-          )
-        }
-        ListEmptyComponent={loading ? <ActivityIndicator colorClassName="accent-accent" /> : null}
-        ListFooterComponent={
-          !loading && !loadFailed && publications.length === 0 ? (
-            <View className="min-h-80">
-              <EmptyState
-                icon={{ ios: 'books.vertical', android: 'library_books', web: 'library_books' }}
-                title="Your library is empty"
-                description="Publications you import will appear here."
-              />
+              <View className="max-w-full flex-row flex-wrap items-center gap-2">
+                {headerSearchAvailable ? (
+                  <HeaderAction
+                    label="Search Library"
+                    icon={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
+                    onPress={() => setSearching(true)}
+                  />
+                ) : null}
+                <HeaderAction
+                  label="Import PDFs"
+                  hint="Add PDFs to your Library"
+                  icon={{ ios: 'plus', android: 'add', web: 'add' }}
+                  disabled={loading || loadFailed || importing}
+                  onPress={() => {
+                    void onImport();
+                  }}
+                />
+                <HeaderAction
+                  label="Edit Library"
+                  hint="Library editing is coming later"
+                  text="Edit"
+                  disabled
+                />
+              </View>
             </View>
-          ) : null
-        }
-      />
-    </View>
+          ) : null}
+          {searching && !searchOnly ? (
+            <View className="flex-row flex-wrap items-center gap-2">
+              <TextInput
+                accessibilityLabel="Search Library titles"
+                placeholder="Search Library"
+                placeholderTextColor={tokens.mutedText}
+                autoFocus
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={localQuery}
+                onChangeText={setLocalQuery}
+                returnKeyType="search"
+                className="min-h-14 min-w-36 flex-1 rounded-full border border-separator bg-surface px-4 text-base text-text"
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Cancel search"
+                onPress={() => {
+                  setSearching(false);
+                  setLocalQuery('');
+                  Keyboard.dismiss();
+                }}
+                className="min-h-11 justify-center px-2 active:opacity-60"
+              >
+                <Text className="text-accent-text text-base">Cancel</Text>
+              </Pressable>
+            </View>
+          ) : null}
+          {message ? (
+            <Text accessibilityLiveRegion="polite" className="text-base text-muted-text">
+              {message}
+            </Text>
+          ) : null}
+        </View>
+      }
+      renderItem={({ item }) => <PublicationRow publication={item} />}
+      ListEmptyComponent={loading ? <ActivityIndicator colorClassName="accent-accent" /> : null}
+      keyboardShouldPersistTaps="handled"
+      ListFooterComponent={
+        !loading && !loadFailed && query && visiblePublications.length === 0 ? (
+          <Text accessibilityLiveRegion="polite" className="py-6 text-base text-muted-text">
+            No matching publications
+          </Text>
+        ) : !loading && !loadFailed && publications.length === 0 ? (
+          <View className="min-h-80">
+            <EmptyState
+              icon={{ ios: 'books.vertical', android: 'library_books', web: 'library_books' }}
+              title="Your library is empty"
+              description="Publications you import will appear here."
+            />
+          </View>
+        ) : null
+      }
+    />
   );
 }

@@ -30,16 +30,12 @@ appId: com.minkgkyaw9899.muse
     file: helpers/select-file.yml
     env:
       FILE_ID: 'Muse Damaged Fixture, pdf'
-- runFlow: helpers/open-selection.yml
-- extendedWaitUntil:
-    visible: 'Import finished.*'
-    timeout: 30000
-- assertVisible: 'Muse Damaged Fixture.*Choose another copy.*'
-- assertVisible: '.*Already in Library.*'
-- assertVisible: '.*was imported.*'
-- scrollUntilVisible:
-    element: 'Muse .*Fixture, 2 pages, imported.*'
-    direction: DOWN
+# One toast summarizes the batch: one copy imports, its identical twin is a duplicate, one is damaged.
+- runFlow:
+    file: helpers/open-selection-toast.yml
+    env:
+      TOAST: 'Imported 1, 1 already in Library, 1 failed.*Choose another copy.*'
+- assertVisible: 'Muse .*Fixture, 2 pages, imported.*'
 - stopApp
 - launchApp
 - assertVisible: 'Muse .*Fixture, 2 pages, imported.*'

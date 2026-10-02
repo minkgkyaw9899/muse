@@ -29,23 +29,12 @@ tags:
     env:
       FILE_ID: 'Muse Large Fixture, pdf'
 - runFlow: helpers/open-selection.yml
+# The 143 MB scan streams through the native copy path. Rows appear as each file completes.
 - extendedWaitUntil:
-    visible: '1 of 2 files completed'
-    timeout: 120000
-# Keep progress readable across supported iPhone widths instead of a narrow column beside Cancel.
-- assertVisible:
-    text: '1 of 2 files completed'
-    width: 330
-    tolerance: 48
-- tapOn: 'Cancel import'
-- extendedWaitUntil:
-    visible: 'Import cancelled.*'
-    timeout: 60000
-- assertVisible: 'Muse Large Fixture.*Cancelled.*'
-- scrollUntilVisible:
-    element: 'Muse Import Fixture, 2 pages, imported.*'
-    direction: DOWN
+    visible: 'Muse Large Fixture, 100 pages, imported.*'
+    timeout: 180000
+- assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
 - stopApp
 - launchApp
+- assertVisible: 'Muse Large Fixture, 100 pages, imported.*'
 - assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
-- assertNotVisible: 'Muse Large Fixture, 100 pages, imported.*'

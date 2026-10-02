@@ -1,4 +1,7 @@
-/** Installed only by build-ios-e2e.sh. Normal app routes never include this cancellation barrier. */
+/** Installed only by build-ios-e2e.sh: records native copy stage timings for profiling. */
+import { File, Paths } from 'expo-file-system';
+
+import { installAppLibrary } from '@/features/library/app-library';
 import {
   createExpoPublicationFileStore,
   createExpoPublicationPicker,
@@ -10,20 +13,14 @@ import { LibraryScreen } from '@/screens/library-screen';
 
 const files = createExpoPublicationFileStore();
 let nextId = 0;
-
-function waitForCancellation(signal?: AbortSignal): Promise<void> {
-  if (signal?.aborted) return Promise.resolve();
-  return new Promise((resolve) => {
-    const finish = () => {
-      clearTimeout(timeout);
-      signal?.removeEventListener('abort', finish);
-      resolve();
-    };
-    // Bound a broken test's wait. Expiry lets the import finish, so cancellation assertions fail.
-    const timeout = setTimeout(finish, 180_000);
-    signal?.addEventListener('abort', finish, { once: true });
-  });
-}
+const copyMeasurements: {
+  fixture: string;
+  native: boolean;
+  bytes: number;
+  start: number;
+  end: number;
+  copyMs: number;
+}[] = [];
 
 const library = createPublicationLibrary({
   picker: createExpoPublicationPicker(),
@@ -34,13 +31,34 @@ const library = createPublicationLibrary({
   fileStore: {
     ...files,
     async stage(source, operationId, signal) {
+      const start = Date.now();
+      const timer = performance.now();
       const staged = await files.stage(source, operationId, signal);
-      if (source.name === 'Muse Large Fixture.pdf') await waitForCancellation(signal);
+      const end = Date.now();
+      const copyMs = performance.now() - timer;
+      copyMeasurements.push({
+        fixture: source.name,
+        native: source.uri.startsWith('muse-import://'),
+        bytes: staged.byteSize,
+        start,
+        end,
+        copyMs,
+      });
+      // Test-only stage timings let host RSS samples be matched to the copy window.
+      try {
+        new File(Paths.document, 'e2e-provider-copy.json').write(JSON.stringify(copyMeasurements));
+      } catch {
+        // Measurement failure must not hide the owned path from Library cleanup.
+        // The profiling script separately rejects missing/incomplete measurements.
+      }
       return staged;
     },
   },
 });
 
+// The Search route resolves the app Library too; sharing this instance keeps one reconciler alive.
+installAppLibrary(library);
+
 export default function LibraryE2E() {
-  return <LibraryScreen library={library} />;
+  return <LibraryScreen />;
 }

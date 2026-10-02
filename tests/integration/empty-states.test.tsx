@@ -4,9 +4,14 @@ import { FavoritesScreen } from '@/screens/favorites-screen';
 import { LibraryScreen } from '@/screens/library-screen';
 import { createInMemoryPreferenceStore } from '@/testing/in-memory-preference-store';
 import { ThemeProvider } from '@/theme/theme-provider';
+import { ToastProvider } from '@/ui/toast';
 
 async function renderInTheme(ui: React.ReactElement) {
-  await render(<ThemeProvider store={createInMemoryPreferenceStore()}>{ui}</ThemeProvider>);
+  await render(
+    <ThemeProvider store={createInMemoryPreferenceStore()}>
+      <ToastProvider>{ui}</ToastProvider>
+    </ThemeProvider>,
+  );
 }
 
 describe('empty states', () => {

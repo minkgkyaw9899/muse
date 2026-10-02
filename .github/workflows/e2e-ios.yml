@@ -31,7 +31,7 @@ env:
 jobs:
   maestro:
     runs-on: macos-26
-    # The prior cold setup/build used 47 minutes; retain time for every flow, including Cancel.
+    # The prior cold setup/build used 47 minutes; retain time for every flow, including the large import.
     timeout-minutes: 75
     permissions:
       contents: read
@@ -137,6 +137,10 @@ jobs:
           } >> "$GITHUB_ENV"
           ccache --zero-stats
 
+      - name: Test native publication sources
+        if: steps.plan.outputs.run_build == 'true'
+        run: scripts/test-publication-sources.sh
+
       - name: Build pinned MuPDF for simulator import tests
         if: steps.plan.outputs.run_build == 'true'
         run: scripts/build-mupdf.sh
@@ -202,8 +206,7 @@ jobs:
             xcrun simctl spawn "$MAESTRO_DEVICE_ID" log show --last 20m --style compact --predicate 'process == "Muse"' | tail -n 150 || true
             echo "::endgroup::"
           }
-          # Seed the large fixture only for its flow. The test build holds its copied file until
-          # Cancel, keeping cancellation deterministic even when XCTest queries are slow.
+          # Seed the large fixture only for its flow: a slow Files provider stays busy with it.
           for flow in .maestro/*.yml; do
             if grep -q '^  - large$' "$flow"; then
               scripts/seed-ios-files-fixture.sh "$MAESTRO_DEVICE_ID" --large

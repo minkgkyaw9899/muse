@@ -8,6 +8,7 @@
       --color-canvas: #f3f0eb;
       --color-surface: #eae3da;
       --color-accent: #a3714a;
+      --color-accent-text: #7e5839;
       --color-text: #1f1b17;
       --color-muted-text: #5c5148;
       --color-separator: #d9cfc3;
@@ -17,6 +18,7 @@
       --color-canvas: #1a1714;
       --color-surface: #26221e;
       --color-accent: #d9a77e;
+      --color-accent-text: #d9a77e;
       --color-text: #f1ece6;
       --color-muted-text: #b5aaa0;
       --color-separator: #3a342e;

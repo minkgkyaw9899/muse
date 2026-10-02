@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the real Library UI/adapters with a test-only cancellation barrier; always restore source.
+# Build the real Library UI/adapters with test-only copy timing; always restore source.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUTPUT="${1:?Pass the simulator build output directory}"
