@@ -30,8 +30,17 @@ type Measurement = {
 async function benchmark() {
   const report = new File(Paths.document, 'batch-import-benchmark.json');
   const measurements: Measurement[] = [];
+  let cancellationProbe:
+    | {
+        duringCopy: boolean;
+        cancelledFiles: number;
+        durableRows: number;
+        ownedFiles: number;
+        stagingFiles: number;
+      }
+    | undefined;
   const write = (state: string, error?: string) =>
-    report.write(JSON.stringify({ state, error, fixtures, measurements }));
+    report.write(JSON.stringify({ state, error, fixtures, measurements, cancellationProbe }));
   write('ready');
   await pause(3000);
   try {
@@ -110,6 +119,65 @@ async function benchmark() {
         write('running');
       }
     }
+    // Verify cancellation during the real streaming copy without depending on an XCTest tap race.
+    await database.runAsync('DELETE FROM publications');
+    const files = createExpoPublicationFileStore();
+    await files.reconcile([]);
+    const sources: PickedPublication[] = fixtures.map((name) => {
+      const input = new File(Paths.document, 'benchmark-inputs', name);
+      return { uri: input.uri, name, size: input.size, dispose: async () => {} };
+    });
+    const abort = new AbortController();
+    let largeStarted = false;
+    let largeSettled = false;
+    let duringCopy = false;
+    let id = 0;
+    const library = createPublicationLibrary({
+      picker: { pickOne: async () => null, pickMany: async () => sources },
+      fileStore: {
+        ...files,
+        async stage(source, operationId, signal) {
+          const large = source.name === fixtures[1];
+          if (large) largeStarted = true;
+          try {
+            return await files.stage(source, operationId, signal);
+          } finally {
+            if (large) largeSettled = true;
+          }
+        },
+      },
+      renderer: createMupdfDocumentRenderer(),
+      repository,
+      clock: { now: () => new Date() },
+      ids: { next: () => `cancel-${++id}` },
+    });
+    const cancelled = await library.importMany({
+      signal: abort.signal,
+      onProgress: (event) => {
+        if (event.file?.index === 0 && event.file.result.status === 'imported') {
+          duringCopy = largeStarted && !largeSettled;
+          abort.abort();
+        }
+      },
+    });
+    cancellationProbe = {
+      duringCopy,
+      cancelledFiles:
+        cancelled.status === 'cancelled'
+          ? cancelled.results.filter((file) => file.result.status === 'cancelled').length
+          : 0,
+      durableRows: (await library.list()).length,
+      ownedFiles: new Directory(Paths.document, 'publications').list().length,
+      stagingFiles: new Directory(Paths.document, 'staging').list().length,
+    };
+    if (
+      !duringCopy ||
+      cancellationProbe.cancelledFiles !== 2 ||
+      cancellationProbe.durableRows !== 1 ||
+      cancellationProbe.ownedFiles !== 1 ||
+      cancellationProbe.stagingFiles !== 0
+    )
+      throw new Error('Real copy cancellation failed');
     await database.closeAsync();
     write('complete');
   } catch {

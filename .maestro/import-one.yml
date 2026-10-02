@@ -21,10 +21,10 @@ appId: com.minkgkyaw9899.muse
           retryTapIfNoChange: true
 - assertVisible:
     id: 'Muse Import Fixture, pdf'
-- tapOn:
-    id: 'Muse Import Fixture, pdf'
-    point: '50%,25%'
-    retryTapIfNoChange: true
+- runFlow:
+    file: helpers/select-file.yml
+    env:
+      FILE_ID: 'Muse Import Fixture, pdf'
 - retry:
     maxRetries: 4
     commands:
@@ -32,7 +32,7 @@ appId: com.minkgkyaw9899.muse
           when:
             visible: 'Open'
           commands:
-            - tapOn: 'Open'
+            - runFlow: helpers/open-selection.yml
       - extendedWaitUntil:
           visible: 'Muse Import Fixture.*was imported.*'
           timeout: 30000
@@ -57,10 +57,10 @@ appId: com.minkgkyaw9899.muse
           retryTapIfNoChange: true
 - assertVisible:
     id: 'Muse Import Fixture, pdf'
-- tapOn:
-    id: 'Muse Import Fixture, pdf'
-    point: '50%,25%'
-    retryTapIfNoChange: true
+- runFlow:
+    file: helpers/select-file.yml
+    env:
+      FILE_ID: 'Muse Import Fixture, pdf'
 - retry:
     maxRetries: 4
     commands:
@@ -68,7 +68,7 @@ appId: com.minkgkyaw9899.muse
           when:
             visible: 'Open'
           commands:
-            - tapOn: 'Open'
+            - runFlow: helpers/open-selection.yml
       - extendedWaitUntil:
           visible: 'Muse Import Fixture.*Already in Library.*'
           timeout: 30000

@@ -235,16 +235,18 @@ export function LibraryScreen({ library: suppliedLibrary }: { library?: Publicat
               <Text className="font-semibold text-base text-text">Import PDFs</Text>
             </Pressable>
             {importing ? (
-              <View className="flex-row items-center gap-2" accessibilityLiveRegion="polite">
-                <ActivityIndicator colorClassName="accent-accent" />
-                <Text className="flex-1 text-base text-muted-text">{progressText}</Text>
+              <View className="gap-2" accessibilityLiveRegion="polite">
+                <View className="flex-row items-center gap-2">
+                  <ActivityIndicator colorClassName="accent-accent" />
+                  <Text className="flex-1 text-base text-muted-text">{progressText}</Text>
+                </View>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Cancel import"
                   accessibilityState={{ disabled: cancelling }}
                   disabled={cancelling}
                   onPress={onCancel}
-                  className="min-h-11 justify-center rounded-xl bg-surface px-4 active:opacity-60"
+                  className="min-h-11 self-start justify-center rounded-xl bg-surface px-4 active:opacity-60"
                 >
                   <Text className="font-semibold text-base text-text">
                     {cancelling ? 'Cancelling…' : 'Cancel'}

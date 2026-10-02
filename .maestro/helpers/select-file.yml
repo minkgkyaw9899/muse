@@ -1,0 +1,20 @@
+appId: com.minkgkyaw9899.muse
+---
+- scrollUntilVisible:
+    element:
+      id: '${FILE_ID}'
+    direction: DOWN
+    centerElement: true
+    visibilityPercentage: 50
+    timeout: 60000
+# The state selector prevents a retry from toggling an already-selected file off.
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: '${FILE_ID}'
+          selected: false
+          point: '50%,25%'
+      - assertVisible:
+          id: '${FILE_ID}'
+          selected: true

@@ -20,16 +20,23 @@ tags:
           id: 'DOC.sidebar.item.On My iPhone'
           point: '90%,50%'
           retryTapIfNoChange: true
-- tapOn:
-    id: 'Muse Import Fixture, pdf'
-    point: '50%,25%'
-- tapOn:
-    id: 'Muse Large Fixture, pdf'
-    point: '50%,25%'
-- tapOn: 'Open'
+- runFlow:
+    file: helpers/select-file.yml
+    env:
+      FILE_ID: 'Muse Import Fixture, pdf'
+- runFlow:
+    file: helpers/select-file.yml
+    env:
+      FILE_ID: 'Muse Large Fixture, pdf'
+- runFlow: helpers/open-selection.yml
 - extendedWaitUntil:
     visible: '1 of 2 files completed'
     timeout: 120000
+# Keep progress readable across supported iPhone widths instead of a narrow column beside Cancel.
+- assertVisible:
+    text: '1 of 2 files completed'
+    width: 330
+    tolerance: 48
 - tapOn: 'Cancel import'
 - extendedWaitUntil:
     visible: 'Import cancelled.*'

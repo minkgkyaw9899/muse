@@ -37,12 +37,12 @@ Confirmed by the owner on 2026-10-01, before the first new test: public `Publica
 
 ## Acceptance criteria
 
-- [ ] Multiple selections run with at most two active files and can be cancelled.
-- [ ] Every selection retains an imported, duplicate, cancelled, or actionable failure result; progress counts terminal results.
-- [ ] Equal fingerprints produce one visible durable publication.
-- [ ] Failed and cancelled imports release temporary and uncommitted owned files; successful imports survive cancellation/relaunch.
-- [ ] VoiceOver, Dynamic Type, 44-point controls, semantic tokens and reduced-motion behavior apply.
-- [ ] Named simulator fixture measurements compare single and batched import; no per-page allocation or physical-device guarantee claimed.
+- [x] Multiple selections run with at most two active files and can be cancelled.
+- [x] Every selection retains an imported, duplicate, cancelled, or actionable failure result; progress counts terminal results.
+- [x] Equal fingerprints produce one visible durable publication.
+- [x] Failed and cancelled imports release temporary and uncommitted owned files; successful imports survive cancellation/relaunch.
+- [x] VoiceOver, Dynamic Type, 44-point controls, semantic tokens and reduced-motion behavior apply.
+- [x] Named simulator fixture measurements compare single and batched import; no per-page allocation or physical-device guarantee claimed.
 
 ## Vertical slices
 
@@ -56,10 +56,26 @@ Confirmed by the owner on 2026-10-01, before the first new test: public `Publica
 
 - [x] Focused tests and regular typecheck.
 - [x] `bun run lint`, `bun run typecheck`, unit, integration and UI suites.
-- [x] Relevant Maestro flows on installed local simulator build: 4/4 passed on a used and on a fresh iOS 26.5 simulator with Maestro 2.10.0.
+- [x] Relevant Maestro flows on the installed Release test build: 4/4 passed on iOS 26.5 with Maestro 2.10.0 on 2026-10-02. Maximum Dynamic Type cancellation, result scrolling and relaunch also passed after Files selection.
 - [x] `bun run validate`.
-- [ ] Two-axis code-review against base `4321664`, documentation updated, commit to current feature branch.
+- [x] Two-axis code-review against base `4321664`; no remaining actionable Standards or Spec findings. Documentation updated.
 
 ## Rollback and risks
 
 No schema or native-interface migration. SQLite unique fingerprints remain the final duplicate guard. Keep copy buffers and worker count fixed to contain aggregate memory; system picker cache copies remain outside Muse's copy scheduling. Completion is reported after cleanup. Cancellation is cooperative and does not undo durable inserts. Observer callbacks must not change import outcomes. Startup reconciliation is run once before work, never between active imports. Preserve source files on uncertain database commit, as in the single-file implementation. MuPDF stays local-build only under ADR 0001.
+
+## Session resource constraint
+
+At the owner's request, commands run at low scheduling priority (`nice -n 15`), native/JavaScript build workers are capped at five of this Mac's ten cores, and heavy tasks run one at a time. The extra Darwin background restriction was removed after it severely stalled compilation; low priority and the worker cap remain. Review axes run sequentially. These are session controls, not product settings.
+
+## Native accessibility follow-up
+
+The installed maximum Dynamic Type check exposed progress wrapping into a narrow column beside Cancel. Before changing production layout, add an installed-UI assertion for a readable progress width across supported iPhone sizes. Put Cancel below the progress line, then repeat the native check at maximum text size and retain the longer Cancelling label without constraining progress width. Verify cancellation, result scrolling and relaunch at that size.
+
+The E2E test build holds the real copied large file until cancellation so every CI flow remains required. A separate production-adapter benchmark probe aborts when the small file commits, verifying cancellation while the real large streaming copy is still active and cleanup of both active/queued selections.
+
+## Final local evidence (2026-10-02)
+
+`bun run lint`, `bun run typecheck`, `bun run test:unit` (47), `bun run test:integration` (77), `bun run test:ui` (12), and `bun run validate` passed sequentially. The installed width assertion failed with the inline Cancel layout and passed after moving Cancel below progress. Rendered tests cover accessible controls and completion announcements; the maximum Dynamic Type check covers the app after Files selection. The normal Release route was restored, rebuilt successfully, and passed navigation smoke. The disposable simulator was shut down afterward.
+
+Immediate installed storage checks after mixed import and cancellation each found one durable two-page publication, one owned PDF, zero staging PDFs and zero picker cache files. The production streaming-copy probe additionally verified active/queued cancellation with the completed publication preserved. Three sequential and three batch runs, including a 100,000-page PDF, are recorded with sampled RSS and measurement limits in [the performance report](../performance/0003-publication-batch-import.md).

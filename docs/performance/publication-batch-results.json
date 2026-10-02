@@ -1,0 +1,91 @@
+{
+  "state": "complete",
+  "fixtures": ["valid-2-pages.pdf", "scan-100p-150mb.pdf", "pages-100k.pdf"],
+  "measurements": [
+    {
+      "mode": "sequential",
+      "iteration": 1,
+      "start": 1790907734299,
+      "end": 1790907744629,
+      "totalMs": 10330.011959001422,
+      "maxActive": 1,
+      "pages": [2, 100, 100000],
+      "bytes": [269, 150031623, 10480028],
+      "baselineRssKiB": 290784,
+      "peakSampledRssKiB": 450368,
+      "rssGrowthKiB": 159584
+    },
+    {
+      "mode": "sequential",
+      "iteration": 2,
+      "start": 1790907745665,
+      "end": 1790907756008,
+      "totalMs": 10342.316125005484,
+      "maxActive": 1,
+      "pages": [2, 100, 100000],
+      "bytes": [269, 150031623, 10480028],
+      "baselineRssKiB": 450384,
+      "peakSampledRssKiB": 451632,
+      "rssGrowthKiB": 1248
+    },
+    {
+      "mode": "sequential",
+      "iteration": 3,
+      "start": 1790907757032,
+      "end": 1790907767442,
+      "totalMs": 10409.932333007455,
+      "maxActive": 1,
+      "pages": [2, 100, 100000],
+      "bytes": [269, 150031623, 10480028],
+      "baselineRssKiB": 451664,
+      "peakSampledRssKiB": 451856,
+      "rssGrowthKiB": 192
+    },
+    {
+      "mode": "batch",
+      "iteration": 1,
+      "start": 1790907768482,
+      "end": 1790907778122,
+      "totalMs": 9639.742458999157,
+      "maxActive": 2,
+      "pages": [2, 100, 100000],
+      "bytes": [269, 150031623, 10480028],
+      "baselineRssKiB": 278768,
+      "peakSampledRssKiB": 386720,
+      "rssGrowthKiB": 107952
+    },
+    {
+      "mode": "batch",
+      "iteration": 2,
+      "start": 1790907779148,
+      "end": 1790907788786,
+      "totalMs": 9637.441249996424,
+      "maxActive": 2,
+      "pages": [2, 100, 100000],
+      "bytes": [269, 150031623, 10480028],
+      "baselineRssKiB": 386736,
+      "peakSampledRssKiB": 387952,
+      "rssGrowthKiB": 1216
+    },
+    {
+      "mode": "batch",
+      "iteration": 3,
+      "start": 1790907789816,
+      "end": 1790907799458,
+      "totalMs": 9641.901207998395,
+      "maxActive": 2,
+      "pages": [2, 100, 100000],
+      "bytes": [269, 150031623, 10480028],
+      "baselineRssKiB": 310592,
+      "peakSampledRssKiB": 384704,
+      "rssGrowthKiB": 74112
+    }
+  ],
+  "cancellationProbe": {
+    "duringCopy": true,
+    "cancelledFiles": 2,
+    "durableRows": 1,
+    "ownedFiles": 1,
+    "stagingFiles": 0
+  }
+}
