@@ -2,6 +2,8 @@
 
 Ticket: #7. Parent spec: #3. Branch: `codex/issue-7-multiple-imports` from `develop` (`4321664`).
 
+> **Superseded in part (2026-10-02):** the screen no longer shows progress, a results list or a Cancel control; see "Toast outcome feedback" below. Criteria below that mention them describe the Library interface, which still returns every per-file result and still aborts on unmount.
+
 ## Outcome
 
 Select several PDFs in Files, follow completed-file progress, cancel remaining work, and retain an independent result for every selection. Successful publications remain durable even when another file fails or the batch is cancelled.
@@ -129,13 +131,21 @@ Import PDFs opens Files, then shows one toast: success, duplicate, or an actiona
 
 ### Acceptance
 
-- [ ] Success, duplicate, mixed and failure outcomes each show the right toast and announcement; no results section, progress or Cancel appears.
-- [ ] The toast dismisses on tap and after its duration; unmounting during an import aborts it and shows nothing.
-- [ ] Maestro flows assert the toast or the durable publication row; the cancellation flow becomes a large-file completion flow.
-- [ ] Requirements, architecture and testing documents match.
+- [x] Success, duplicate, mixed and failure outcomes each show the right toast and announcement; no results section, progress or Cancel appears. (Rendered tests; error and success toasts captured on the iOS 26.5 simulator.)
+- [x] The toast dismisses on tap and after its duration; unmounting during an import aborts it and shows nothing. (Rendered tests with fake timers.)
+- [x] Maestro flows assert the toast or the durable publication row; the cancellation flow becomes a large-file completion flow. (smoke, import-one, import-multiple and import-large pass on iOS 26.5.)
+- [x] Requirements, architecture and testing documents match.
 
 ### Risks
 
 A large import now gives no in-screen feedback beyond the dimmed + action and appearing rows. No schema change and no new dependency.
 
 Follow-through: `.maestro/import-cancel.yml` became `import-large.yml` (the 143 MB import completes and persists after relaunch), the harness no longer holds the large file for a Cancel tap, and the flows assert the batch toast or the durable publication rows. Fixing the existing `import-one` failure also showed that the iOS 26 integrated search dismiss control is labeled "Close", not "Cancel".
+
+### Validation evidence (2026-10-02, after the toast and LegendList changes)
+
+`bun run validate` passes (51 unit, 81 integration, 19 UI tests; Biome clean). `scripts/test-publication-sources.sh` passes. The four Maestro flows pass on an iOS 26.5 simulator with Maestro 2.10.0. Verified on the simulator by hand: native tab minimize-on-scroll with `LegendList`, the Search tab in light and dark, glass header actions, and the toast at the bottom above the tab bar.
+
+### Known limits of the toast design (from the two-axis review)
+
+A multi-file summary names counts and the first failure's message, not each filename, so two failures with different causes show one message. A toast lasts 5 to 8 seconds and nothing else persists the outcome. The dismiss control is the toast itself (role alert), not a separate labeled button, and the glass branches have no automated coverage. These are accepted trade-offs of the owner's toast decision and candidates for follow-up tickets.

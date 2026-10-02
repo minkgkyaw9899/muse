@@ -240,7 +240,11 @@ export function LibraryScreen({
         </View>
       }
       renderItem={({ item }) => <PublicationRow publication={item} />}
-      ListEmptyComponent={loading ? <ActivityIndicator colorClassName="accent-accent" /> : null}
+      ListEmptyComponent={
+        loading ? (
+          <ActivityIndicator accessibilityLabel="Loading Library" colorClassName="accent-accent" />
+        ) : null
+      }
       keyboardShouldPersistTaps="handled"
       ListFooterComponent={
         !loading && !loadFailed && query && visiblePublications.length === 0 ? (

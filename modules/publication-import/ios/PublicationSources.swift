@@ -80,7 +80,7 @@ final class PublicationSources {
 
   func copy(_ sourceId: String, operationId: String,
             completion: @escaping (Result<CopiedPublicationSource, PublicationCopyFailure>) -> Void) {
-    guard operationId.range(of: "^[a-zA-Z0-9_-]+$", options: .regularExpression) != nil else {
+    guard operationId.range(of: "\\A[a-zA-Z0-9_-]+\\z", options: .regularExpression) != nil else {
       completion(.failure(.storage)); return
     }
     lock.lock()

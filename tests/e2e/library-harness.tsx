@@ -7,6 +7,7 @@ import {
   createExpoPublicationPicker,
   createSQLitePublicationRepository,
 } from '@/features/library/expo-publication-adapters';
+import { NATIVE_PUBLICATION_SOURCE_PREFIX } from '@/features/library/native-publication-import';
 import { createPublicationLibrary } from '@/features/library/publication-library';
 import { createMupdfDocumentRenderer } from '@/features/reader/mupdf-document-renderer';
 import { LibraryScreen } from '@/screens/library-screen';
@@ -38,7 +39,7 @@ const library = createPublicationLibrary({
       const copyMs = performance.now() - timer;
       copyMeasurements.push({
         fixture: source.name,
-        native: source.uri.startsWith('muse-import://'),
+        native: source.uri.startsWith(NATIVE_PUBLICATION_SOURCE_PREFIX),
         bytes: staged.byteSize,
         start,
         end,

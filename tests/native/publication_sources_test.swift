@@ -38,6 +38,11 @@ func copied(_ sources: PublicationSources, _ sourceId: String, _ operationId: St
     defer { sources.shutdown() }
     let selected = try sources.select([input, root.appendingPathComponent("missing.pdf"), input])
     try require(selected.count == 3, "Selection must retain every source without opening it")
+    // A trailing line break must not pass the operation id check (ICU's `$` would accept it).
+    if case .success = try copied(sources, selected[0].id, "trailing-newline\n") {
+      throw TestFailure(message: "An operation id ending in a newline must be rejected")
+    }
+    print("PASS operation ids reject a trailing newline")
     try require(Set(selected.map(\.id)).count == 3, "Repeated selections need independent ownership")
     try require(!FileManager.default.fileExists(atPath: staging.path), "Selection must not copy bytes")
     let result = try copied(sources, selected[0].id, "first")
