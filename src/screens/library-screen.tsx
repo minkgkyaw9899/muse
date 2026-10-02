@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
-  FlatList,
   Keyboard,
   Platform,
   Pressable,
@@ -21,6 +20,7 @@ import { detectTabBarKind } from '@/theme/glass-capability';
 import { useAppTheme } from '@/theme/theme-provider';
 import { EmptyState } from '@/ui/empty-state';
 import { HeaderAction } from '@/ui/header-action';
+import { ScrollList } from '@/ui/scroll-list';
 import { useToast } from '@/ui/toast';
 import { summarizeImport } from './import-result-message';
 
@@ -160,10 +160,12 @@ export function LibraryScreen({
   );
   // The list must be the screen's first child: iOS finds the tab's scroll view there to minimize the bar.
   return (
-    <FlatList
+    <ScrollList
       className="flex-1 bg-canvas"
       data={visiblePublications}
       keyExtractor={(publication) => publication.id}
+      estimatedItemSize={80}
+      recycleItems={false}
       contentInsetAdjustmentBehavior="automatic"
       contentContainerClassName="grow px-5 pb-8"
       ListHeaderComponent={

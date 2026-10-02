@@ -83,6 +83,7 @@ Initial targets, to be calibrated after the native spike:
 ## Compatibility and constraints
 
 - Expo SDK 57, React Native 0.86, React 19.2, iOS 16.4 minimum.
+- Lists and scroll views use `@legendapp/list` 3.6 (MIT, peer dependency `react` only) through `src/ui/scroll-list.tsx`. Compatibility with this SDK is evidenced by the typecheck, the rendered tests, and installed-app flows on the iOS 26.5 simulator, including native tab minimization.
 - Development builds only; Expo Go is unsupported.
 - Root native projects are generated with CNG.
 - Imported files are app-local copies. Arbitrary persistent filesystem paths are not a cross-platform contract.

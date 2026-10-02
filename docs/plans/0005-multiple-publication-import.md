@@ -110,7 +110,7 @@ Installed iOS 26.5 simulator checks of the first Search/UI slice found that the 
 - **Shared Library finding:** `src/features/library/app-library.ts` owns the one app Library; the E2E harness installs its test adapters there. A rendered test fails without it.
 - **Search:** the native Search tab shows the bottom search pill with clear/close controls and filters titles case-insensitively, in light and dark. At maximum Dynamic Type the header actions wrap below the title and stay tappable; the title itself breaks mid-word, which is unchanged from before and still needs a decision.
 
-Open: Constitution principle 9 now requires `@legendapp/list` for scrolling lists, which `LibraryScreen`, `Screen` and the Appearance screen do not yet use. Migrating needs its own ticket and a re-check that native minimization still finds the list.
+Constitution principle 9 (`@legendapp/list` for every scrolling list and scroll view) is applied: `LibraryScreen`, `Screen` and the Appearance screen use `ScrollList`, and native tab minimization still works with it on the simulator.
 
 ## Toast outcome feedback (2026-10-02, owner decision)
 
