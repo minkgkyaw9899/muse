@@ -6,6 +6,10 @@ tags:
     clearState: true
 - assertVisible: 'Your library is empty'
 - tapOn: 'Import PDFs'
+# The Files provider is slow to present while the 143 MB fixture is seeded.
+- extendedWaitUntil:
+    visible: 'Browse'
+    timeout: 60000
 - tapOn: 'Browse'
 - runFlow:
     when:
