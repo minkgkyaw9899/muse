@@ -18,7 +18,7 @@ Muse is a private, ad-free, offline-first reading app whose primary advantage is
 ### Library
 
 - Import one or multiple PDF files from system document providers.
-- Use a three-tab shell: Library, Favorites, and Settings. The Library is the first tab.
+- Use a Library, Favorites, and Settings shell, with Library first. On supported iOS 26+, add a separate native Search tab with an integrated bottom search field; elsewhere place Search before + in the Library header.
 - Show up to three recently opened publications, ordered by last-opened date; never-opened imports do not appear in Recent.
 - Show all publications in a compact list with title, page count, and last-opened or import date. Each row opens the publication when the Reader is available and has a menu for rename, favorite/unfavorite, and removal.
 - Filter Library publications by displayed title as the reader types, ignoring capitalization.
@@ -26,7 +26,7 @@ Muse is a private, ad-free, offline-first reading app whose primary advantage is
 - Rename only the displayed title; leave the owned PDF filename unchanged.
 - Support multi-selection, Select all for the currently visible filtered list, and removal with a confirmation that states the number of publications affected.
 - Provide a Favorites tab with the same compact rows, title search, opening, and unfavorite actions. A favorite marks a publication, not a page bookmark.
-- Make the primary Library action open the system Files picker for multiple PDFs, with completed-file progress and independent success, duplicate, cancellation, or actionable failure results. Bound active imports and allow cancellation while preserving completed publications.
+- Show a bold + import action on the right of the Library title row, with an accessible Import PDFs label and a minimum 44-point touch target. Place a disabled Edit pill after + until Library editing is implemented. Make this primary action open the system Files picker for multiple PDFs. Report the outcome in one toast (success, duplicate, or an actionable failure) with no in-screen progress, results list, or Cancel control, and keep the action disabled while an import runs. Bound active imports; leaving the screen cancels remaining work while preserving completed publications.
 - Store title, source filename, byte size, page count, import date, last-opened date, reading position, and a stable content fingerprint.
 - Show import, validation, duplicate, missing-file, corrupt-file, encrypted-file, and unsupported-file states.
 - Remove a publication and its derived cache without affecting other publications.
@@ -46,13 +46,14 @@ Muse is a private, ad-free, offline-first reading app whose primary advantage is
 ### Appearance
 
 - Provide Settings for System, Light, and Dark app themes. Reader-specific reading mode and page background controls become functional with the Reader; planned page background choices are Automatic, Light, Dark, and Woody.
-- Tab bar: on iOS 26+ (both `isLiquidGlassAvailable()` and `isGlassEffectAPIAvailable()` true) use the native Liquid Glass tab bar with filled active icons. Elsewhere use the custom JS tab bar: filled, bold active icon in the accent color and a short bounce on selection (skipped under Reduce Motion). Both share the same routes, labels, and tokens.
+- Tab bar: on iOS 26+ (both `isLiquidGlassAvailable()` and `isGlassEffectAPIAvailable()` true) use the native Liquid Glass tab bar with filled active icons. Elsewhere use the custom JS tab bar: filled, bold active icon in the accent color and a short bounce on selection (skipped under Reduce Motion). The selected icon and label share the `accentText` token in both designs, so the label meets 4.5:1 text contrast. Both use the same primary destinations, labels, and tokens. On supported iOS 26+, the additional Search tab uses the system search role; minimize the native bar on downward scrolling and restore it on upward scrolling, retaining the full bar under Reduce Motion.
 - Selection in lists is shown with icons (leading option icon, trailing check), not text labels; back buttons are icon-only.
 - Provide About and Share actions when their content is ready. Terms & Conditions requires approved text, and Rate us requires a store listing destination.
 - Use a clean, restrained interface following an approximate 60/30/10 distribution:
   - 60% canvas/background: light `#F3F0EB`, dark `#1A1714`
   - 30% surfaces and secondary areas: light `#EAE3DA`, dark `#26221E`
   - 10% accent, selected states, and active icons: light `#A3714A`, dark `#D9A77E`
+  - small accent text and the active tab icon/label pair (`accentText`, 4.5:1): light `#7E5839`, dark `#D9A77E`
   - text: light `#1F1B17`, dark `#F1ECE6`; a soft, warm palette rather than pure black or white
 - Centralize semantic tokens; raw palette values may appear only in the theme definition (`src/theme/tokens.ts`) and its Uniwind mirror in `src/global.css`, which a unit test keeps identical.
 - Follow React Native Reusables component patterns implemented with Uniwind/Tailwind CSS.
