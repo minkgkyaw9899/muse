@@ -13,6 +13,10 @@ on:
         description: Ignore every native cache and rebuild from scratch
         type: boolean
         default: false
+      profile_build:
+        description: Record xcodebuild's build timing summary in the job summary
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -130,15 +134,6 @@ jobs:
           while IFS= read -r line; do export "$line"; done <<< "$env_lines"
           ccache --zero-stats
 
-      # Booting takes 2 to 3 minutes. Start it before the MuPDF and app builds and wait for it after
-      # them, since neither needs a running simulator.
-      - name: Start iPhone simulator
-        if: steps.plan.outputs.run_build == 'true'
-        run: |
-          DEVICE_ID=$(xcrun simctl create 'Muse E2E' com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro com.apple.CoreSimulator.SimRuntime.iOS-26-5)
-          xcrun simctl boot "$DEVICE_ID"
-          echo "MAESTRO_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
-
       - name: Test native publication sources
         if: steps.plan.outputs.run_build == 'true'
         run: scripts/test-publication-sources.sh
@@ -147,12 +142,32 @@ jobs:
         if: steps.plan.outputs.run_build == 'true'
         run: scripts/build-mupdf.sh
 
+      # Boot after the MuPDF build. Booting during the MuPDF and native tests made them slower by more
+      # than the boot saved (measured on two runs of PR 23: 517 s and 522 s against 359 s).
+      - name: Boot iPhone simulator
+        if: steps.plan.outputs.run_build == 'true'
+        run: |
+          DEVICE_ID=$(xcrun simctl create 'Muse E2E' com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro com.apple.CoreSimulator.SimRuntime.iOS-26-5)
+          xcrun simctl boot "$DEVICE_ID"
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          echo "MAESTRO_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
+
       # The pinned MuPDF framework contains an arm64 simulator slice, not x86_64.
       - name: Select arm64 simulator architecture
         if: steps.plan.outputs.run_build == 'true'
         run: |
           printf 'ARCHS = arm64\n' > "$RUNNER_TEMP/muse-sim-arm64.xcconfig"
           echo "XCODE_XCCONFIG_FILE=$RUNNER_TEMP/muse-sim-arm64.xcconfig" >> "$GITHUB_ENV"
+
+      # Opt-in (manual runs only). Expo drops xcodebuild's timing summary, so a shim named xcodebuild
+      # goes first on PATH and records it; see scripts/xcodebuild-profile.sh.
+      - name: Prepare build profiling
+        if: steps.plan.outputs.run_build == 'true' && inputs.profile_build
+        run: |
+          mkdir -p "$RUNNER_TEMP/profile-bin"
+          ln -sf "$PWD/scripts/xcodebuild-profile.sh" "$RUNNER_TEMP/profile-bin/xcodebuild"
+          echo "$RUNNER_TEMP/profile-bin" >> "$GITHUB_PATH"
+          echo "XCODEBUILD_PROFILE_LOG=$RUNNER_TEMP/xcodebuild-profile.log" >> "$GITHUB_ENV"
 
       - name: Build standalone iOS simulator app
         if: steps.plan.outputs.run_build == 'true'
@@ -194,18 +209,21 @@ jobs:
           misses=$(( $(ccache_stat cache_miss) ))
           {
             echo "### iOS build"
-            echo "- Build step, first attempt (the simulator boots during it): ${BUILD_SECONDS:-unknown} s"
+            echo "- Build step, first attempt: ${BUILD_SECONDS:-unknown} s"
             echo "- ccache: $hits hits, $misses misses"
           } >> "$GITHUB_STEP_SUMMARY"
           # A failed build compiled little, so only a successful one proves ccache is not engaged.
           if [ "$BUILD_OUTCOME" = "success" ] && [ $((hits + misses)) -eq 0 ]; then
             echo "::warning::ccache served no compile calls. It is not engaged, so every C++ file was compiled from source."
           fi
-
-      # The simulator started before the build; wait until it is ready to accept the app.
-      - name: Wait for iPhone simulator
-        if: steps.plan.outputs.run_build == 'true'
-        run: xcrun simctl bootstatus "$MAESTRO_DEVICE_ID" -b
+          if [ -s "${XCODEBUILD_PROFILE_LOG:-}" ]; then
+            {
+              echo "### xcodebuild timing summary"
+              echo '```'
+              awk '/^Build Timing Summary/ { show = 1 } show && NF' "$XCODEBUILD_PROFILE_LOG"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Install app and seed Files fixture
         if: steps.plan.outputs.run_build == 'true'

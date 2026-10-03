@@ -79,11 +79,17 @@ The `Report build time and ccache statistics` step writes the build duration and
 | Corrupt Bun cache | `bun pm cache rm` runs and `bun install --frozen-lockfile` retries once. |
 | Manual reset | Run the workflow with `clean_cache`, or bump the repository variable `NATIVE_CACHE_VERSION` to invalidate every cache. |
 
-The simulator is created and booted before the build and awaited after it, so the 2 to 3 minute boot overlaps the compile. On a three-core runner this may slow the compile slightly; compare the job summary with earlier runs.
+The simulator boots after the MuPDF build and before the app build. Booting it earlier, alongside the MuPDF build and the native source tests, was measured on two runs of PR 23 and made those steps slower by more than the boot saved (517 s and 522 s against 359 s), so it was reverted.
 
 Behavior changes from #16: an empty or unknown change list now builds (it used to skip), `fresh` is also computed for pushes, a docs-only push skips the build, and runs on `develop` are no longer cancelled by a newer push, so a skipped docs-only run cannot stop a native build before it saves its cache.
 
-Not yet verified on GitHub (none of this has run): the docs-only skip for pull requests and pushes, the Bun cache retry, the recovery path, `clean_cache`, ccache hits on a runner, and the simulator overlap. The simulator now boots during the MuPDF and app builds, so the build step's time includes that contention and is not like for like with older runs. Known gap carried over from #16: when the recovery step deletes a cache whose key was an exact hit, `actions/cache` skips its post-save, so the clean rebuild may not repopulate it. Record real before and after timings on #14 from the first runs. The MuPDF build (about 185 s per run) is deliberately not cached: ADR 0001 limits where MuPDF binaries may exist, and that needs an explicit decision.
+Measured on GitHub (PR 23, `macos-26`, Xcode 26.6): the cold run compiled 418 calls through ccache (418 misses, 0.4 GB stored, saved as a 66 MB cache), and a re-run restored it and hit 418 of 418. The app build step took 929 s cold and 690 s warm; before the fix it ranged from 852 to 1,568 s across seven runs. The warm saving (239 s) is much smaller than the local 53 s to 6 s for one pod, and a timestamp profile still attributes about 300 s to `RNReanimated` on a fully cached run. The cause is not yet established; the profiling output described below exists to find it.
+
+### Profiling a build
+
+Expo's `run:ios` formats xcodebuild's output and drops its timing summary. A manual run with `profile_build` enabled puts `scripts/xcodebuild-profile.sh` first on `PATH` as `xcodebuild`; it adds `-showBuildTimingSummary`, prints output unchanged, keeps the raw log, and returns the real exit status (`tests/unit/xcodebuild-profile.test.ts`). The job summary then shows the `Build Timing Summary`: total seconds per task category (`CompileC`, `SwiftCompile`, `Ld` and so on). Use it on a warm run to see how long C-family compile tasks still take when ccache hits, which the timestamp profile could not settle. It reports categories, not targets. Locally the shim worked through a full `expo run:ios` build with Xcode 26.6. Normal runs and pull requests are unaffected.
+
+Not yet verified on GitHub (none of this has run): the docs-only skip for pull requests and pushes, the Bun cache retry, the recovery path, and `clean_cache`. Known gap carried over from #16: when the recovery step deletes a cache whose key was an exact hit, `actions/cache` skips its post-save, so the clean rebuild may not repopulate it. The MuPDF build (about 185 s per run) is deliberately not cached: ADR 0001 limits where MuPDF binaries may exist, and that needs an explicit decision.
 
 ## Native inspection benchmark
 

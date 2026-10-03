@@ -17,7 +17,7 @@ Repeat `iOS Maestro E2E` runs skip C++ compilation of unchanged native code, doc
 - `ccache --show-stats` reported 0.0 GB and `actions/cache` warned that `~/.ccache` did not exist, so no ccache was ever saved.
 - Root cause (reproduced locally on Xcode 27 and verified on Xcode 26.6, the runner's version): the Pods project is configured by React Native with `CC=ccache-clang.sh` and a `CCACHE_BINARY` build setting. Xcode does run the wrapper, but custom build settings are not exported into compile tasks, so `$CCACHE_BINARY` is empty and the wrapper runs plain `clang`. Ambient environment variables (such as `CCACHE_DIR`) do reach it. A second problem hid behind the first: ccache rejected every call (187 of 187) until `ivfsoverlay` sloppiness was set. With both fixed, the RNReanimated scheme builds in 53 s cold and 6 s warm (187 of 187 hits) on Xcode 26.6.
 - The `Plan build and cache use` step did not exist in the only docs-only PR run (#19), so docs-only skipping has never been exercised. On `push` to `develop` the step cannot skip at all, so every docs-only merge rebuilds for about 28 minutes.
-- Other recurring costs per run: MuPDF build about 185 s (cannot be cached under ADR 0001's gate without a policy decision), simulator boot 140 to 210 s (can overlap the build).
+- Other recurring costs per run: MuPDF build about 185 s (cannot be cached under ADR 0001's gate without a policy decision), simulator boot 140 to 210 s (overlapping it with the MuPDF build was tried and measured as a net loss; see testing.md).
 
 ## Scope
 
@@ -25,8 +25,8 @@ Repeat `iOS Maestro E2E` runs skip C++ compilation of unchanged native code, doc
 
 1. Make ccache engage (export the resolved ccache path and the `ivfsoverlay` sloppiness, with depend mode), and warn in the job summary when a build compiles nothing through ccache.
 2. Extract build planning into a testable script and extend it to `push` events, so docs-only merges to `develop` skip the macOS build.
-3. Start the simulator boot while the app builds.
-4. Publish step timings and ccache statistics to the job summary.
+3. (Dropped after measurement) Start the simulator boot early. It made the MuPDF and native tests about 160 s slower on two runs, so the sequential boot was restored.
+4. Publish step timings and ccache statistics to the job summary, with an opt-in xcodebuild timing summary (a tested shim) for manual runs.
 5. Update `docs/testing.md` with the corrected description and measured results.
 
 ### Excluded
@@ -64,7 +64,7 @@ Both scripts are exercised through `bun run test:unit` by spawning them with fix
 2. Failing test: native inputs or more than 150 files yield `fresh=true`; dispatch with `clean_cache` yields `fresh=true`.
 3. Failing test: docs-only `push` yields `run_build=false`; unknown change list yields `run_build=true`.
 4. Failing test: ccache environment script exports the resolved binary and errors when absent.
-5. Wire both scripts, the simulator-boot overlap and the job summary into the workflow; validate YAML.
+5. Wire both scripts and the job summary into the workflow; validate YAML.
 6. Local measurement (cold, warm) and docs update.
 
 ## Validation
@@ -83,5 +83,5 @@ Both scripts are exercised through `bun run test:unit` by spawning them with fix
 - Caches are disposable. Bumping `NATIVE_CACHE_VERSION` or reverting the workflow restores the previous behavior; no data or schema is involved.
 - Risk: ccache serving a stale object. Mitigated by content hashing (`CCACHE_COMPILERCHECK=content`) and the existing recovery step.
 - Risk: engagement is proven on this Mac with Xcode 26.6 (the runner's version) but not on the runner itself until a workflow run happens. The job summary warning makes a silent regression visible. Xcode's native compilation caching is the documented fallback if ccache hit rates disappoint on CI.
-- Risk: simulator boot overlapping the build slows both on a 3-core runner; revert to sequential if the summary shows no net gain.
+- Risk (realized and reverted): booting the simulator during the MuPDF build slowed both on the 3-core runner.
 - ADR 0001: nothing here uploads or distributes MuPDF output; the gate test must still pass.
