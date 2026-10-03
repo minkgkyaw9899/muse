@@ -50,6 +50,8 @@ export function LibraryScreen({
   const controller = useRef<AbortController | null>(null);
   const mounted = useRef(true);
   const readVersion = useRef(0);
+  // Returned import records remain visible until a successful snapshot includes them.
+  const pendingImportedIds = useRef(new Set<string>());
   const reload = useRef<() => void>(() => {});
   const [publications, setPublications] = useState<Publication[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,7 +77,13 @@ export function LibraryScreen({
         .list()
         .then((listed) => {
           if (current()) {
-            setPublications(listed);
+            const pending = new Set(pendingImportedIds.current);
+            for (const publication of listed) pending.delete(publication.id);
+            pendingImportedIds.current = pending;
+            setPublications((previous) => [
+              ...listed,
+              ...previous.filter((publication) => pending.has(publication.id)),
+            ]);
             setLoadFailed(false);
             setMessage(null);
           }
@@ -112,6 +120,8 @@ export function LibraryScreen({
         setPublications((current) =>
           current.map((row) => (row.id === result.publication.id ? result.publication : row)),
         );
+        // Recover the complete current collection, including commits made by another screen.
+        reload.current();
       } else {
         toast.show({ kind: 'error', message: result.error.message });
       }
@@ -133,12 +143,14 @@ export function LibraryScreen({
 
   function addPublications(added: Publication[]) {
     if (added.length === 0) return;
+    for (const publication of added) pendingImportedIds.current.add(publication.id);
     readVersion.current += 1;
     setPublications((current) => [
       ...new Map(
         [...added, ...current].map((publication) => [publication.id, publication]),
       ).values(),
     ]);
+    reload.current();
   }
 
   function importedPublication(file: FileImportResult): Publication[] {

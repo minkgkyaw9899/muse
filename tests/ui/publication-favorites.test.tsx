@@ -99,8 +99,10 @@ it('keeps a saved favorite when an older collection read completes later', async
   };
   let finishOlderRead!: (rows: Publication[]) => void;
   let reads = 0;
+  const list = library.list;
   library.list = async () => {
     if (++reads === 1) return [fieldNotes];
+    if (reads > 2) return list();
     return new Promise((resolve) => {
       finishOlderRead = resolve;
     });
@@ -112,6 +114,86 @@ it('keeps a saved favorite when an older collection read completes later', async
   expect(await screen.findByRole('button', { name: 'Unfavorite Field Notes' })).toBeSelected();
   await act(async () => finishOlderRead([fieldNotes]));
   expect(screen.getByRole('button', { name: 'Unfavorite Field Notes' })).toBeSelected();
+});
+
+it('retains another publication favorite when a local save overtakes its collection refresh', async () => {
+  const library = collection([
+    { ...fieldNotes, isFavorite: true },
+    { ...fieldNotes, id: 'travel', title: 'Travel Logs' },
+  ]);
+  const list = library.list;
+  let reads = 0;
+  const pending: (() => void)[] = [];
+  library.list = async () => {
+    const rows = await list();
+    if (++reads === 1) return rows;
+    return new Promise((resolve) => {
+      pending.push(() => resolve(rows));
+    });
+  };
+  await render(providers(<FavoritesScreen library={library} />));
+  expect(await screen.findByText('Field Notes')).toBeTruthy();
+  await act(async () => {
+    await library.setFavorite('travel', true);
+  });
+  await fireEvent.press(screen.getByRole('button', { name: 'Unfavorite Field Notes' }));
+  await act(async () => {
+    for (const finish of pending) finish();
+  });
+  expect(await screen.findByRole('button', { name: 'Unfavorite Travel Logs' })).toBeSelected();
+  expect(screen.queryByText('No favorites yet')).toBeNull();
+  expect(await list()).toMatchObject([
+    { id: 'field-notes', isFavorite: false },
+    { id: 'travel', isFavorite: true },
+  ]);
+});
+
+it('retains another screen favorite change when importing overtakes pending snapshots', async () => {
+  const library = collection();
+  let rows = [fieldNotes];
+  const observers = new Set<() => void>();
+  const pending: (() => void)[] = [];
+  let reads = 0;
+  library.subscribe = (listener) => {
+    observers.add(listener);
+    return () => observers.delete(listener);
+  };
+  library.list = async () => {
+    const snapshot = rows;
+    if (++reads === 1) return snapshot;
+    return new Promise((resolve) => {
+      pending.push(() => resolve(snapshot));
+    });
+  };
+  library.setFavorite = async (id, isFavorite) => {
+    const publication = { ...fieldNotes, id, isFavorite };
+    rows = rows.map((row) => (row.id === id ? publication : row));
+    for (const observer of observers) observer();
+    return { status: 'saved', publication };
+  };
+  library.importMany = async (options) => {
+    const publication = { ...fieldNotes, id: 'travel', title: 'Travel Logs' };
+    rows = [...rows, publication];
+    for (const observer of observers) observer();
+    const file = {
+      index: 0,
+      sourceFilename: 'Travel.pdf',
+      result: { status: 'imported' as const, publication },
+    };
+    options?.onProgress?.({ completed: 1, total: 1, file });
+    return { status: 'completed', results: [file] };
+  };
+  await render(providers(<LibraryScreen library={library} />));
+  expect(await screen.findByText('Field Notes')).toBeTruthy();
+  await act(async () => {
+    await library.setFavorite('field-notes', true);
+  });
+  await fireEvent.press(screen.getByRole('button', { name: 'Import PDFs' }));
+  await act(async () => {
+    for (const finish of pending) finish();
+  });
+  expect(await screen.findByRole('button', { name: 'Unfavorite Field Notes' })).toBeSelected();
+  expect(screen.getByText('Travel Logs')).toBeTruthy();
 });
 
 it('distinguishes an unavailable Favorites collection from empty and retries loading', async () => {
@@ -131,6 +213,42 @@ it('distinguishes an unavailable Favorites collection from empty and retries loa
   await fireEvent.press(screen.getByRole('button', { name: 'Retry loading Favorites' }));
   expect(await screen.findByRole('button', { name: 'Unfavorite Field Notes' })).toBeSelected();
   expect(screen.queryByRole('button', { name: 'Retry loading Favorites' })).toBeNull();
+});
+
+it('finishes a loading retry when the last favorite is removed before the retry settles', async () => {
+  const library = collection([{ ...fieldNotes, isFavorite: true }]);
+  const list = library.list;
+  const subscribe = library.subscribe;
+  let refresh!: () => void;
+  library.subscribe = (listener) => {
+    refresh = listener;
+    return subscribe(listener);
+  };
+  let unavailable = false;
+  let deferred = false;
+  const pending: (() => void)[] = [];
+  library.list = async () => {
+    if (unavailable) throw new Error('storage offline');
+    const snapshot = await list();
+    if (!deferred) return snapshot;
+    return new Promise((resolve) => {
+      pending.push(() => resolve(snapshot));
+    });
+  };
+  await render(providers(<FavoritesScreen library={library} />));
+  expect(await screen.findByText('Field Notes')).toBeTruthy();
+  unavailable = true;
+  await act(async () => refresh());
+  expect(await screen.findByRole('button', { name: 'Retry loading Favorites' })).toBeTruthy();
+  unavailable = false;
+  deferred = true;
+  await fireEvent.press(screen.getByRole('button', { name: 'Retry loading Favorites' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Unfavorite Field Notes' }));
+  await act(async () => {
+    for (const finish of pending) finish();
+  });
+  expect(await screen.findByText('No favorites yet')).toBeTruthy();
+  expect(screen.queryByLabelText('Loading Favorites')).toBeNull();
 });
 
 it('searches only favorites by displayed title, ignoring case, and restores the collection on cancel', async () => {
