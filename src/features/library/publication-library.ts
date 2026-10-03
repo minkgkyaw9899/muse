@@ -14,6 +14,7 @@ export type Publication = {
   importedAt: string;
   lastOpenedAt: string | null;
   readingPosition: null;
+  isFavorite: boolean;
   /** Path relative to Muse's owned publication directory. Never a picker URL. */
   ownedPath: string;
 };
@@ -29,6 +30,10 @@ export type ImportResult =
         message: string;
       };
     };
+
+export type FavoriteChangeResult =
+  | { status: 'saved'; publication: Publication }
+  | { status: 'error'; error: { category: 'storage' | 'notFound'; message: string } };
 
 export type PickedPublication = {
   uri: string;
@@ -61,6 +66,8 @@ export type PublicationLibraryDependencies = {
     list(): Promise<Publication[]>;
     findByFingerprint(fingerprint: string): Promise<Publication | null>;
     insert(publication: Publication): Promise<void>;
+    /** Atomically saves and returns committed metadata; null means the publication is absent. */
+    setFavorite(id: string, isFavorite: boolean): Promise<Publication | null>;
   };
   renderer: DocumentRenderer;
   clock: { now(): Date };
@@ -87,6 +94,10 @@ export type BatchImportResult =
 
 export type PublicationLibrary = {
   list(): Promise<Publication[]>;
+  /** Resolves only after the choice is durable; failures contain safe reader-facing guidance. */
+  setFavorite(id: string, isFavorite: boolean): Promise<FavoriteChangeResult>;
+  /** Observes committed import and favorite writes. The returned function removes the observer. */
+  subscribe(listener: () => void): () => void;
   importOne(options?: { signal?: AbortSignal }): Promise<ImportResult>;
   importMany(options?: {
     signal?: AbortSignal;
@@ -179,6 +190,27 @@ export function createPublicationLibrary({
   let ready: Promise<void> | null = null;
   let importing = false;
   let admission = Promise.resolve();
+  const listeners = new Set<() => void>();
+
+  function publishChange(): void {
+    for (const listener of [...listeners]) {
+      try {
+        listener();
+      } catch {
+        // Observers cannot change a committed publication's outcome.
+      }
+    }
+  }
+
+  async function acquireMetadataWrite(): Promise<() => void> {
+    const previous = admission;
+    let release!: () => void;
+    admission = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    return release;
+  }
 
   function ensureReady(): Promise<void> {
     if (!ready) {
@@ -256,12 +288,7 @@ export function createPublicationLibrary({
             },
           };
         }
-        const previous = admission;
-        let release!: () => void;
-        admission = new Promise<void>((resolve) => {
-          release = resolve;
-        });
-        await previous;
+        const release = await acquireMetadataWrite();
         try {
           if (options?.signal?.aborted) return { status: 'cancelled' };
           const existing = await repository.findByFingerprint(inspection.inspection.fingerprint);
@@ -280,6 +307,7 @@ export function createPublicationLibrary({
             importedAt: clock.now().toISOString(),
             lastOpenedAt: null,
             readingPosition: null,
+            isFavorite: false,
             ownedPath: pending.promoted.relativePath,
           };
           try {
@@ -298,12 +326,14 @@ export function createPublicationLibrary({
               concurrent.ownedPath === publication.ownedPath
             ) {
               pending.promoted = undefined;
+              publishChange();
               return { status: 'imported', publication: concurrent };
             }
             if (concurrent) return { status: 'duplicate', publication: concurrent };
             throw error;
           }
           pending.promoted = undefined;
+          publishChange();
           return { status: 'imported', publication };
         } finally {
           release();
@@ -344,6 +374,40 @@ export function createPublicationLibrary({
     async list() {
       await ensureReady();
       return repository.list();
+    },
+    async setFavorite(id, isFavorite) {
+      const release = await acquireMetadataWrite();
+      try {
+        await ensureReady();
+        const publication = await repository.setFavorite(id, isFavorite);
+        if (!publication) {
+          return {
+            status: 'error',
+            error: {
+              category: 'notFound',
+              message: 'This publication is no longer in your Library.',
+            },
+          };
+        }
+        publishChange();
+        return { status: 'saved', publication };
+      } catch {
+        return {
+          status: 'error',
+          error: {
+            category: 'storage',
+            message: 'Muse could not save this favorite. Please try again.',
+          },
+        };
+      } finally {
+        release();
+      }
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
     },
     async importOne(options) {
       if (importing) return busy();

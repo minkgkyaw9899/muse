@@ -57,6 +57,13 @@ function createAdapters() {
       insert: async (row: Publication) => {
         rows.set(row.id, row);
       },
+      setFavorite: async (id: string, isFavorite: boolean) => {
+        const publication = rows.get(id);
+        if (!publication) return null;
+        const saved = { ...publication, isFavorite };
+        rows.set(id, saved);
+        return saved;
+      },
     },
     renderer: {
       inspect: async ({ uri }: { uri: string }) => {
@@ -79,6 +86,151 @@ function createAdapters() {
 }
 
 describe('PublicationLibrary', () => {
+  it('keeps concurrent favorite choices in request order when the first durable write is slow', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    await library.importOne();
+    const save = adapters.repository.setFavorite;
+    let finishFirst!: () => void;
+    const choices: boolean[] = [];
+    adapters.repository.setFavorite = async (id, isFavorite) => {
+      choices.push(isFavorite);
+      if (choices.length === 1) {
+        await new Promise<void>((resolve) => {
+          finishFirst = resolve;
+        });
+      }
+      return save(id, isFavorite);
+    };
+    const first = library.setFavorite('publication-1', true);
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    const second = library.setFavorite('publication-1', false);
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    finishFirst();
+    await expect(first).resolves.toMatchObject({
+      status: 'saved',
+      publication: { isFavorite: true },
+    });
+    await expect(second).resolves.toMatchObject({
+      status: 'saved',
+      publication: { isFavorite: false },
+    });
+    expect(await library.list()).toEqual([expect.objectContaining({ isFavorite: false })]);
+  });
+
+  it('keeps durable favorite state and gives safe recovery guidance when writes fail', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    await library.importOne();
+    await library.setFavorite('publication-1', true);
+    const changed = jest.fn();
+    library.subscribe(changed);
+    adapters.repository.setFavorite = async () => {
+      throw new Error('private path file:///reader/Notes.pdf');
+    };
+    await expect(library.setFavorite('publication-1', false)).resolves.toEqual({
+      status: 'error',
+      error: {
+        category: 'storage',
+        message: 'Muse could not save this favorite. Please try again.',
+      },
+    });
+    expect(await createPublicationLibrary(adapters).list()).toEqual([
+      expect.objectContaining({ isFavorite: true }),
+    ]);
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it('reports a missing publication without creating a favorite or publishing a change', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    const changed = jest.fn();
+    library.subscribe(changed);
+    await expect(library.setFavorite('missing', true)).resolves.toEqual({
+      status: 'error',
+      error: { category: 'notFound', message: 'This publication is no longer in your Library.' },
+    });
+    expect(await library.list()).toEqual([]);
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it('publishes new imports after metadata commits while duplicates retain the saved favorite', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    const snapshots: Promise<Publication[]>[] = [];
+    library.subscribe(() => {
+      throw new Error('Disposed screen');
+    });
+    library.subscribe(() => {
+      snapshots.push(library.list());
+    });
+    const imported = await library.importOne();
+    expect(imported.status).toBe('imported');
+    expect(await Promise.all(snapshots)).toEqual([
+      [expect.objectContaining({ id: 'publication-1', isFavorite: false })],
+    ]);
+    await library.setFavorite('publication-1', true);
+    expect(await library.importOne()).toMatchObject({
+      status: 'duplicate',
+      publication: { id: 'publication-1', isFavorite: true },
+    });
+    expect(snapshots).toHaveLength(2);
+  });
+
+  it('notifies observers only after favorite writes commit and isolates disposed observers', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    await library.importOne();
+    const snapshots: Promise<Publication[]>[] = [];
+    library.subscribe(() => {
+      throw new Error('Disposed screen');
+    });
+    const unsubscribe = library.subscribe(() => {
+      snapshots.push(library.list());
+    });
+    const save = adapters.repository.setFavorite;
+    let finish!: () => void;
+    adapters.repository.setFavorite = async (...args) => {
+      await new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      return save(...args);
+    };
+    const pending = library.setFavorite('publication-1', true);
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    expect(snapshots).toEqual([]);
+    finish();
+    await expect(pending).resolves.toMatchObject({
+      status: 'saved',
+      publication: { isFavorite: true },
+    });
+    expect(await Promise.all(snapshots)).toEqual([[expect.objectContaining({ isFavorite: true })]]);
+
+    unsubscribe();
+    adapters.repository.setFavorite = save;
+    await library.setFavorite('publication-1', false);
+    expect(snapshots).toHaveLength(1);
+    expect(await createPublicationLibrary(adapters).list()).toEqual([
+      expect.objectContaining({ isFavorite: false }),
+    ]);
+  });
+
+  it('persists a publication favorite independently of reading metadata after relaunch', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    const imported = await library.importOne();
+    expect(imported).toMatchObject({ status: 'imported', publication: { isFavorite: false } });
+    if (imported.status !== 'imported') throw new Error('Expected import to succeed');
+
+    expect(await library.setFavorite(imported.publication.id, true)).toEqual({
+      status: 'saved',
+      publication: { ...imported.publication, isFavorite: true },
+    });
+    expect(await createPublicationLibrary(adapters).list()).toEqual([
+      { ...imported.publication, isFavorite: true },
+    ]);
+  });
+
   it('imports an app-owned PDF and lists its durable metadata after relaunch', async () => {
     const adapters = createAdapters();
     const library = createPublicationLibrary(adapters);
@@ -275,6 +427,7 @@ it('treats a unique-fingerprint insert race as a duplicate and removes its own c
     importedAt: '2026-09-30T01:00:00.000Z',
     lastOpenedAt: null,
     readingPosition: null,
+    isFavorite: true,
     ownedPath: 'publications/from-another-import.pdf',
   };
   adapters.repository.insert = async () => {

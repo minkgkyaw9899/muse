@@ -1,0 +1,34 @@
+appId: com.minkgkyaw9899.muse
+---
+# Use the real picker, import and title-search flow to establish one durable publication.
+- runFlow: import-one.yml
+- tapOn: Favorite Muse Import Fixture
+- assertVisible: Unfavorite Muse Import Fixture
+- tapOn: Favorites
+- assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
+- assertVisible: Unfavorite Muse Import Fixture
+- stopApp
+- launchApp
+- tapOn: Favorites
+- assertVisible: Unfavorite Muse Import Fixture
+- tapOn: Search Favorites
+- inputText: mUsE
+- assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
+- eraseText
+- inputText: missing
+- assertVisible: No matching favorites
+- assertNotVisible: Unfavorite Muse Import Fixture
+- eraseText
+- assertVisible: Unfavorite Muse Import Fixture
+- tapOn: Cancel search
+- tapOn: Unfavorite Muse Import Fixture
+- assertVisible: No favorites yet
+- tapOn: Library
+- assertVisible: Favorite Muse Import Fixture
+# Unfavoriting preserves the source and metadata, and the absence survives relaunch.
+- stopApp
+- launchApp
+- assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
+- assertVisible: Favorite Muse Import Fixture
+- tapOn: Favorites
+- assertVisible: No favorites yet

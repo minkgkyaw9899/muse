@@ -17,7 +17,19 @@ import { ToastProvider } from '@/ui/toast';
 // Exercise the supported non-glass controls; native glass presentation is checked on simulator.
 jest.mock('@/theme/glass-capability', () => ({ detectTabBarKind: () => 'fallback' }));
 
+const favoriteActions: Pick<PublicationLibrary, 'subscribe' | 'setFavorite'> = {
+  subscribe: () => () => {},
+  setFavorite: async () => ({
+    status: 'error',
+    error: {
+      category: 'storage',
+      message: 'Favorite changes are unavailable in this import adapter.',
+    },
+  }),
+};
+
 const publication: Publication = {
+  isFavorite: false,
   id: 'publication-1',
   title: 'Field Notes',
   sourceFilename: 'Field Notes.pdf',
@@ -63,6 +75,7 @@ function withProviders(ui: ReactNode, store = createInMemoryPreferenceStore()) {
 /** A Library whose single-file import settles with `result`. */
 function libraryImporting(result: ImportResult): PublicationLibrary {
   return {
+    ...favoriteActions,
     list: async () => [],
     importOne: async () => result,
     importMany: async () => ({
@@ -80,6 +93,7 @@ it('waits for the initial Library snapshot before accepting an import', async ()
   let finishListing!: (rows: Publication[]) => void;
   const importOne = jest.fn(async () => ({ status: 'imported' as const, publication }));
   const library: PublicationLibrary = {
+    ...favoriteActions,
     importMany: async () => {
       const result = await library.importOne();
       return {
@@ -107,6 +121,7 @@ it('waits for the initial Library snapshot before accepting an import', async ()
 it('keeps import disabled when the initial Library snapshot is unavailable', async () => {
   const importOne = jest.fn(async () => ({ status: 'duplicate' as const, publication }));
   const library: PublicationLibrary = {
+    ...favoriteActions,
     importMany: async () => {
       const result = await library.importOne();
       return {
@@ -133,6 +148,7 @@ it('keeps import disabled when the initial Library snapshot is unavailable', asy
 it('offers an accessible import action and shows durable publication metadata', async () => {
   let publications: Publication[] = [];
   const library: PublicationLibrary = {
+    ...favoriteActions,
     importMany: async () => {
       const result = await library.importOne();
       return {
@@ -160,6 +176,7 @@ it('offers an accessible import action and shows durable publication metadata', 
 it('shows a successful import from its returned record without requiring another Library read', async () => {
   let listCalls = 0;
   const library: PublicationLibrary = {
+    ...favoriteActions,
     importMany: async () => {
       const result = await library.importOne();
       return {
@@ -189,6 +206,7 @@ it('filters displayed titles case-insensitively and restores publications when c
     sourceFilename: 'FIELD.pdf',
   };
   const library: PublicationLibrary = {
+    ...favoriteActions,
     list: async () => [publication, travel],
     importOne: async () => ({ status: 'cancelled' }),
     importMany: async () => ({ status: 'cancelled', results: [] }),
@@ -210,6 +228,7 @@ it('filters displayed titles case-insensitively and restores publications when c
 
 it('opens fallback Library search, filters as typed, and cancels without changing the Library', async () => {
   const library: PublicationLibrary = {
+    ...favoriteActions,
     list: async () => [publication],
     importOne: async () => ({ status: 'cancelled' }),
     importMany: async () => ({ status: 'cancelled', results: [] }),
@@ -229,6 +248,7 @@ it('opens fallback Library search, filters as typed, and cancels without changin
 it('renders the Library and Search screens from the one installed app Library', async () => {
   const list = jest.fn(async () => [publication]);
   installAppLibrary({
+    ...favoriteActions,
     list,
     importOne: async () => ({ status: 'cancelled' }),
     importMany: async () => ({ status: 'cancelled', results: [] }),
@@ -266,6 +286,7 @@ it.each([
 it('shows no loading, progress, results or Cancel control while Files and the copy are active', async () => {
   let finish!: () => void;
   const library: PublicationLibrary = {
+    ...favoriteActions,
     list: async () => [],
     importOne: async () => ({ status: 'cancelled' }),
     importMany: async (options) => {
@@ -304,6 +325,7 @@ it('shows no loading, progress, results or Cancel control while Files and the co
 
 it('summarizes mixed outcomes in one error toast with the first actionable failure', async () => {
   const library: PublicationLibrary = {
+    ...favoriteActions,
     list: async () => [],
     importOne: async () => ({ status: 'cancelled' }),
     importMany: async () => ({
@@ -329,6 +351,7 @@ it('summarizes mixed outcomes in one error toast with the first actionable failu
 
 it('reports several failed files in one toast', async () => {
   const library: PublicationLibrary = {
+    ...favoriteActions,
     list: async () => [],
     importOne: async () => ({ status: 'cancelled' }),
     importMany: async () => ({
@@ -347,6 +370,7 @@ it('reports several failed files in one toast', async () => {
 
 it('shows a picker failure in an error toast and shows nothing when Files is dismissed', async () => {
   const failing: PublicationLibrary = {
+    ...favoriteActions,
     list: async () => [],
     importOne: async () => ({ status: 'cancelled' }),
     importMany: async () => ({
@@ -362,6 +386,7 @@ it('shows a picker failure in an error toast and shows nothing when Files is dis
   await first.unmount();
 
   const dismissed: PublicationLibrary = {
+    ...favoriteActions,
     list: async () => [],
     importOne: async () => ({ status: 'cancelled' }),
     importMany: async () => ({ status: 'cancelled', results: [] }),
@@ -400,6 +425,7 @@ it('requests cancellation on unmount and ignores late screen results', async () 
   let signal: AbortSignal | undefined;
   const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
   const library: PublicationLibrary = {
+    ...favoriteActions,
     list: async () => [],
     importOne: async () => ({ status: 'cancelled' }),
     importMany: async (options) => {

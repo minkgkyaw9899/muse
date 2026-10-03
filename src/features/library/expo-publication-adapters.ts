@@ -206,6 +206,7 @@ type PublicationRow = {
   last_opened_at: string | null;
   reading_position_page: number | null;
   owned_path: string;
+  is_favorite: number;
 };
 
 function toPublication(row: PublicationRow): Publication {
@@ -220,13 +221,31 @@ function toPublication(row: PublicationRow): Publication {
     lastOpenedAt: row.last_opened_at,
     readingPosition: null,
     ownedPath: row.owned_path,
+    isFavorite: row.is_favorite === 1,
   };
 }
 
-export function createSQLitePublicationRepository(): PublicationLibraryDependencies['repository'] {
-  let database: Promise<SQLite.SQLiteDatabase> | null = null;
+type SQLitePublicationStatements = {
+  execAsync(sql: string): Promise<void>;
+  getFirstAsync<T>(sql: string, ...values: SQLite.SQLiteBindValue[]): Promise<T | null>;
+  getAllAsync<T>(sql: string, ...values: SQLite.SQLiteBindValue[]): Promise<T[]>;
+  runAsync(sql: string, ...values: SQLite.SQLiteBindValue[]): Promise<unknown>;
+};
+
+/** Database connection seam keeps production migrations testable against real SQLite. */
+export type SQLitePublicationDatabase = SQLitePublicationStatements & {
+  withExclusiveTransactionAsync(
+    task: (transaction: SQLitePublicationStatements) => Promise<void>,
+  ): Promise<void>;
+};
+
+export function createSQLitePublicationRepository(
+  openDatabase: () => Promise<SQLitePublicationDatabase> = () =>
+    SQLite.openDatabaseAsync('muse-library.db'),
+): PublicationLibraryDependencies['repository'] {
+  let database: Promise<SQLitePublicationDatabase> | null = null;
   async function db() {
-    database ??= SQLite.openDatabaseAsync('muse-library.db');
+    database ??= openDatabase();
     return database;
   }
   return {
@@ -234,10 +253,12 @@ export function createSQLitePublicationRepository(): PublicationLibraryDependenc
       const database = await db();
       await database.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
       const version = await database.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-      if ((version?.user_version ?? 0) > 1) throw new LibraryAdapterError('storage');
-      if ((version?.user_version ?? 0) === 0) {
+      const schemaVersion = version?.user_version ?? 0;
+      if (schemaVersion > 2) throw new LibraryAdapterError('storage');
+      if (schemaVersion < 2) {
         await database.withExclusiveTransactionAsync(async (transaction) => {
-          await transaction.execAsync(`
+          if (schemaVersion === 0)
+            await transaction.execAsync(`
             CREATE TABLE IF NOT EXISTS publications (
               id TEXT PRIMARY KEY NOT NULL,
               title TEXT NOT NULL,
@@ -250,7 +271,11 @@ export function createSQLitePublicationRepository(): PublicationLibraryDependenc
               reading_position_page INTEGER,
               owned_path TEXT NOT NULL UNIQUE
             );
-            PRAGMA user_version = 1;
+          `);
+          await transaction.execAsync(`
+            ALTER TABLE publications ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0
+              CHECK (is_favorite IN (0, 1));
+            PRAGMA user_version = 2;
           `);
         });
       }
@@ -273,8 +298,8 @@ export function createSQLitePublicationRepository(): PublicationLibraryDependenc
       await database.withExclusiveTransactionAsync(async (transaction) => {
         await transaction.runAsync(
           `INSERT INTO publications (id, title, source_filename, byte_size, page_count, fingerprint,
-            imported_at, last_opened_at, reading_position_page, owned_path)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            imported_at, last_opened_at, reading_position_page, owned_path, is_favorite)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           publication.id,
           publication.title,
           publication.sourceFilename,
@@ -285,8 +310,25 @@ export function createSQLitePublicationRepository(): PublicationLibraryDependenc
           publication.lastOpenedAt,
           null,
           publication.ownedPath,
+          Number(publication.isFavorite),
         );
       });
+    },
+    async setFavorite(id, isFavorite) {
+      const database = await db();
+      let saved: PublicationRow | null = null;
+      await database.withExclusiveTransactionAsync(async (transaction) => {
+        await transaction.runAsync(
+          'UPDATE publications SET is_favorite = ? WHERE id = ?',
+          Number(isFavorite),
+          id,
+        );
+        saved = await transaction.getFirstAsync<PublicationRow>(
+          'SELECT * FROM publications WHERE id = ?',
+          id,
+        );
+      });
+      return saved ? toPublication(saved) : null;
     },
   };
 }

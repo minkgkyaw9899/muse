@@ -51,6 +51,13 @@ function createBatchAdapters(names = ['Notes.pdf', 'Damaged.pdf', 'Notes copy.pd
         }
         rows.set(row.id, row);
       },
+      setFavorite: async (id, isFavorite) => {
+        const publication = rows.get(id);
+        if (!publication) return null;
+        const saved = { ...publication, isFavorite };
+        rows.set(id, saved);
+        return saved;
+      },
     },
     renderer: {
       inspect: async ({ uri }) => {

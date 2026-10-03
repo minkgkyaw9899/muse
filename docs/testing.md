@@ -14,6 +14,12 @@ Lefthook runs Biome on staged JavaScript, TypeScript, JSON, and CSS before each 
 
 Jest uses the SDK 57 `jest-expo` preset. React Native Testing Library 14 uses async `render`, so await the result before querying. Keep assertions on visible content or accessible controls. The UI tests cover shared primitives and Library import states. Maestro's smoke flow walks the three-tab shell and Appearance; `import-one.yml` selects the committed two-page PDF through Files, checks its accessible row, and checks persistence after relaunch and native Search title filtering/clearing.
 
+## Favorites behavior
+
+`tests/integration/publication-library.test.ts` covers favorite persistence, unfavorite, missing publications, safe failed writes and durable change subscriptions through the Library interface. `publication-favorites-storage.test.ts` runs the production SQLite repository against the host Node SQLite engine (Node 22.13+ required by Expo SDK 57) for fresh and schema-1 databases, rollback/retry, duplicate retention and failed metadata writes. No PDF pages are materialized.
+
+`tests/ui/publication-favorites.test.tsx` covers accessible actions shared across Library and Favorites, displayed-title matching, no-match/loading/error states, save failure recovery and suppression of stale collection reads. `.maestro/favorites.yml` exercises the real picker/import, favorite/relaunch, Favorites search, unfavorite and cross-tab consistency on an installed app.
+
 ## Local iOS E2E
 
 Install Maestro CLI 2.10.0 and Java 17 or newer using the [official Maestro instructions](https://docs.maestro.dev/maestro-cli/how-to-install-maestro-cli). Build the pinned MuPDF framework for this local test build, then target a booted arm64 iOS simulator. The temporary Xcode configuration is necessary because the framework has an arm64 simulator slice while Xcode's Release build otherwise asks for arm64 and x86_64:

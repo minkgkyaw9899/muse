@@ -16,6 +16,7 @@ import type {
   Publication,
   PublicationLibrary,
 } from '@/features/library/publication-library';
+import { PublicationRow } from '@/features/library/publication-row';
 import { detectTabBarKind } from '@/theme/glass-capability';
 import { useAppTheme } from '@/theme/theme-provider';
 import { EmptyState } from '@/ui/empty-state';
@@ -26,41 +27,19 @@ import { summarizeImport } from './import-result-message';
 
 const headerSearchAvailable = detectTabBarKind() === 'fallback';
 
-function formatImportDate(isoDate: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(isoDate));
-}
-
-function PublicationRow({ publication }: { publication: Publication }) {
-  const date = formatImportDate(publication.importedAt);
-  const pageLabel = `${publication.pageCount} ${publication.pageCount === 1 ? 'page' : 'pages'}`;
-  return (
-    <View
-      accessible
-      accessibilityLabel={`${publication.title}, ${pageLabel}, imported ${date}`}
-      className="min-h-20 justify-center border-separator border-b py-3"
-    >
-      <Text className="font-semibold text-lg text-text">{publication.title}</Text>
-      <Text className="text-base text-muted-text">
-        {pageLabel} · {date}
-      </Text>
-    </View>
-  );
-}
-
 /** The route injects the production Library; tests can supply the same public interface. */
 export function LibraryScreen({
   library: suppliedLibrary,
   searchQuery = '',
   searchOnly = false,
+  favoritesOnly = false,
 }: {
   library?: PublicationLibrary;
   searchQuery?: string;
   searchOnly?: boolean;
+  favoritesOnly?: boolean;
 }) {
+  const title = favoritesOnly ? 'Favorites' : 'Library';
   const { tokens } = useAppTheme();
   const toast = useToast();
   const [searching, setSearching] = useState(false);
@@ -70,11 +49,14 @@ export function LibraryScreen({
   const library = libraryRef.current;
   const controller = useRef<AbortController | null>(null);
   const mounted = useRef(true);
+  const readVersion = useRef(0);
+  const reload = useRef<() => void>(() => {});
   const [publications, setPublications] = useState<Publication[]>([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [saving, setSaving] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (Platform.OS === 'ios' && message) AccessibilityInfo.announceForAccessibility(message);
@@ -86,28 +68,72 @@ export function LibraryScreen({
     setLoading(true);
     setLoadFailed(false);
     setMessage(null);
-    library
-      .list()
-      .then((listed) => {
-        if (active) setPublications(listed);
-      })
-      .catch(() => {
-        if (active) {
-          setLoadFailed(true);
-          setMessage('Muse could not load the Library. Reopen the app and try again.');
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+    function refresh() {
+      const version = ++readVersion.current;
+      const current = () => active && version === readVersion.current;
+      library
+        .list()
+        .then((listed) => {
+          if (current()) {
+            setPublications(listed);
+            setLoadFailed(false);
+            setMessage(null);
+          }
+        })
+        .catch(() => {
+          if (current()) {
+            setLoadFailed(true);
+            setMessage(`Muse could not load the ${title}. Reopen the app and try again.`);
+          }
+        })
+        .finally(() => {
+          if (current()) setLoading(false);
+        });
+    }
+    reload.current = refresh;
+    const unsubscribe = library.subscribe(refresh);
+    refresh();
     return () => {
       active = false;
       mounted.current = false;
       controller.current?.abort();
+      unsubscribe();
     };
-  }, [library]);
+  }, [library, title]);
+
+  async function onFavorite(publication: Publication) {
+    setSaving((current) => new Set(current).add(publication.id));
+    try {
+      const result = await library.setFavorite(publication.id, !publication.isFavorite);
+      if (!mounted.current) return;
+      if (result.status === 'saved') {
+        // A snapshot started before this durable write cannot restore its old favorite state.
+        readVersion.current += 1;
+        setPublications((current) =>
+          current.map((row) => (row.id === result.publication.id ? result.publication : row)),
+        );
+      } else {
+        toast.show({ kind: 'error', message: result.error.message });
+      }
+    } catch {
+      if (mounted.current)
+        toast.show({
+          kind: 'error',
+          message: 'Muse could not save this favorite. Please try again.',
+        });
+    } finally {
+      if (mounted.current)
+        setSaving((current) => {
+          const next = new Set(current);
+          next.delete(publication.id);
+          return next;
+        });
+    }
+  }
 
   function addPublications(added: Publication[]) {
+    if (added.length === 0) return;
+    readVersion.current += 1;
     setPublications((current) => [
       ...new Map(
         [...added, ...current].map((publication) => [publication.id, publication]),
@@ -155,7 +181,10 @@ export function LibraryScreen({
   }
 
   const query = (searchOnly ? searchQuery : localQuery).trim().toLocaleLowerCase();
-  const visiblePublications = publications.filter((publication) =>
+  const collection = favoritesOnly
+    ? publications.filter((publication) => publication.isFavorite)
+    : publications;
+  const visiblePublications = collection.filter((publication) =>
     publication.title.toLocaleLowerCase().includes(query),
   );
   // The list must be the screen's first child: iOS finds the tab's scroll view there to minimize the bar.
@@ -176,39 +205,43 @@ export function LibraryScreen({
                 accessibilityRole="header"
                 className="min-w-36 flex-1 font-bold text-4xl text-text"
               >
-                Library
+                {title}
               </Text>
               <View className="max-w-full flex-row flex-wrap items-center gap-2">
-                {headerSearchAvailable ? (
+                {headerSearchAvailable || favoritesOnly ? (
                   <HeaderAction
-                    label="Search Library"
+                    label={`Search ${title}`}
                     icon={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
                     onPress={() => setSearching(true)}
                   />
                 ) : null}
-                <HeaderAction
-                  label="Import PDFs"
-                  hint="Add PDFs to your Library"
-                  icon={{ ios: 'plus', android: 'add', web: 'add' }}
-                  disabled={loading || loadFailed || importing}
-                  onPress={() => {
-                    void onImport();
-                  }}
-                />
-                <HeaderAction
-                  label="Edit Library"
-                  hint="Library editing is coming later"
-                  text="Edit"
-                  disabled
-                />
+                {!favoritesOnly ? (
+                  <>
+                    <HeaderAction
+                      label="Import PDFs"
+                      hint="Add PDFs to your Library"
+                      icon={{ ios: 'plus', android: 'add', web: 'add' }}
+                      disabled={loading || loadFailed || importing}
+                      onPress={() => {
+                        void onImport();
+                      }}
+                    />
+                    <HeaderAction
+                      label="Edit Library"
+                      hint="Library editing is coming later"
+                      text="Edit"
+                      disabled
+                    />
+                  </>
+                ) : null}
               </View>
             </View>
           ) : null}
           {searching && !searchOnly ? (
             <View className="flex-row flex-wrap items-center gap-2">
               <TextInput
-                accessibilityLabel="Search Library titles"
-                placeholder="Search Library"
+                accessibilityLabel={`Search ${title} titles`}
+                placeholder={`Search ${title}`}
                 placeholderTextColor={tokens.mutedText}
                 autoFocus
                 autoCapitalize="none"
@@ -237,26 +270,60 @@ export function LibraryScreen({
               {message}
             </Text>
           ) : null}
+          {loadFailed ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Retry loading ${title}`}
+              onPress={() => {
+                setLoading(true);
+                setLoadFailed(false);
+                setMessage(null);
+                reload.current();
+              }}
+              className="min-h-11 justify-center rounded-full border border-separator bg-surface px-4 active:opacity-60"
+            >
+              <Text className="text-accent-text text-base">Try again</Text>
+            </Pressable>
+          ) : null}
         </View>
       }
-      renderItem={({ item }) => <PublicationRow publication={item} />}
+      renderItem={({ item }) => (
+        <PublicationRow
+          publication={item}
+          saving={saving.has(item.id)}
+          onFavorite={() => {
+            void onFavorite(item);
+          }}
+        />
+      )}
       ListEmptyComponent={
         loading ? (
-          <ActivityIndicator accessibilityLabel="Loading Library" colorClassName="accent-accent" />
+          <ActivityIndicator
+            accessibilityLabel={`Loading ${title}`}
+            colorClassName="accent-accent"
+          />
         ) : null
       }
       keyboardShouldPersistTaps="handled"
       ListFooterComponent={
         !loading && !loadFailed && query && visiblePublications.length === 0 ? (
           <Text accessibilityLiveRegion="polite" className="py-6 text-base text-muted-text">
-            No matching publications
+            {favoritesOnly ? 'No matching favorites' : 'No matching publications'}
           </Text>
-        ) : !loading && !loadFailed && publications.length === 0 ? (
+        ) : !loading && !loadFailed && collection.length === 0 ? (
           <View className="min-h-80">
             <EmptyState
-              icon={{ ios: 'books.vertical', android: 'library_books', web: 'library_books' }}
-              title="Your library is empty"
-              description="Publications you import will appear here."
+              icon={
+                favoritesOnly
+                  ? { ios: 'heart', android: 'favorite', web: 'favorite' }
+                  : { ios: 'books.vertical', android: 'library_books', web: 'library_books' }
+              }
+              title={favoritesOnly ? 'No favorites yet' : 'Your library is empty'}
+              description={
+                favoritesOnly
+                  ? 'Mark a publication as a favorite to find it here quickly.'
+                  : 'Publications you import will appear here.'
+              }
             />
           </View>
         ) : null
