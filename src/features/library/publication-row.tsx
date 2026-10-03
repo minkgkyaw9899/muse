@@ -3,16 +3,21 @@ import { Pressable, Text, View } from 'react-native';
 
 import { useAppTheme } from '@/theme/theme-provider';
 import type { Publication } from './publication-library';
+import { PublicationMenu } from './publication-menu';
 
 /** One compact, accessible presentation for Library, Search and Favorites. */
 export function PublicationRow({
   publication,
   saving = false,
   onFavorite,
+  onRename,
+  onRemove,
 }: {
   publication: Publication;
   saving?: boolean;
   onFavorite: () => void;
+  onRename: () => void;
+  onRemove: () => void;
 }) {
   const { tokens } = useAppTheme();
   const date = new Intl.DateTimeFormat(undefined, {
@@ -54,6 +59,13 @@ export function PublicationRow({
           size={24}
         />
       </Pressable>
+      <PublicationMenu
+        publication={publication}
+        disabled={saving}
+        onFavorite={onFavorite}
+        onRename={onRename}
+        onRemove={onRemove}
+      />
     </View>
   );
 }

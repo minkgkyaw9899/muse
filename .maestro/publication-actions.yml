@@ -1,0 +1,52 @@
+appId: com.minkgkyaw9899.muse
+---
+- runFlow: favorites.yml
+- tapOn: Library
+- tapOn: Publication actions for Muse Import Fixture
+- assertVisible: Rename Muse Import Fixture
+- assertVisible: Favorite Muse Import Fixture
+- assertVisible: Remove Muse Import Fixture
+- tapOn: Rename Muse Import Fixture
+- tapOn: Publication title
+- eraseText: 100
+- inputText: Research Notes
+- tapOn: Save title
+- assertVisible: 'Research Notes, 2 pages, imported.*'
+- tapOn: Publication actions for Research Notes
+- tapOn: Favorite Research Notes
+- tapOn: Favorites
+- assertVisible: 'Research Notes, 2 pages, imported.*'
+- stopApp
+- launchApp
+- tapOn: Favorites
+- assertVisible: 'Research Notes, 2 pages, imported.*'
+- tapOn: Search Favorites
+- inputText: rEsEaRcH
+- assertVisible: 'Research Notes, 2 pages, imported.*'
+- tapOn: Cancel search
+- tapOn: Publication actions for Research Notes
+- tapOn: Remove Research Notes
+- assertVisible: Remove one publication?
+- assertVisible: Confirm removal of Research Notes
+- tapOn: Cancel removal
+- assertVisible: 'Research Notes, 2 pages, imported.*'
+- tapOn: Publication actions for Research Notes
+- tapOn: Remove Research Notes
+- tapOn: Confirm removal of Research Notes
+- assertVisible: No favorites yet
+- tapOn: Library
+- assertVisible: Your library is empty
+- stopApp
+- launchApp
+- assertVisible: Your library is empty
+# The provider's original is intact and can be imported again after confirmed removal.
+- tapOn: Import PDFs
+- tapOn: Browse
+- runFlow:
+    file: helpers/select-file.yml
+    env:
+      FILE_ID: 'Muse Import Fixture, pdf'
+- runFlow: helpers/open-selection.yml
+- extendedWaitUntil:
+    visible: 'Muse Import Fixture, 2 pages, imported.*'
+    timeout: 30000

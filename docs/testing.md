@@ -18,7 +18,7 @@ Jest uses the SDK 57 `jest-expo` preset. React Native Testing Library 14 uses as
 
 `tests/integration/publication-library.test.ts` covers favorite persistence, unfavorite, missing publications, safe failed writes and durable change subscriptions through the Library interface. `publication-favorites-storage.test.ts` runs the production SQLite repository against the host Node SQLite engine (Node 22.13+ required by Expo SDK 57) for fresh and schema-1 databases, rollback/retry, reopening after a failed connection attempt, duplicate retention and failed metadata writes. No PDF pages are materialized.
 
-`tests/ui/publication-favorites.test.tsx` covers accessible actions shared across Library and Favorites, displayed-title matching, no-match/loading/error states, save failure recovery and suppression of stale collection reads. `.maestro/favorites.yml` exercises the real picker/import, favorite/relaunch, Favorites search, unfavorite and cross-tab consistency on an installed app.
+`tests/ui/publication-favorites.test.tsx` covers accessible actions shared across Library and Favorites, displayed-title matching, no-match/loading/error states, save failure recovery and suppression of stale collection reads. The native menu is a declared UI presentation adapter: Jest exercises its complete web contract; installed-app tests verify the Expo native menu. `.maestro/favorites.yml` exercises the real picker/import, favorite/relaunch, Favorites search, unfavorite and cross-tab consistency on an installed app.
 
 ## Local iOS E2E
 
@@ -84,3 +84,7 @@ Tab minimization has no automated assertion. On an iOS 26 simulator, give the Li
 `LegendList` renders rows only after it measures a layout, which React Native Testing Library never provides, so `jest.setup.ts` replaces `@legendapp/list/react-native` with a shim that keeps its public contract (data, `renderItem`, header, empty state, footer). Rendered tests therefore verify each screen's output, not the virtualizer; scrolling, recycling and tab minimization are verified only on the simulator.
 
 `src/theme/glass-capability.ts` is a declared seam, as `docs/architecture.md` describes: rendered UI tests fake `detectTabBarKind` to exercise the complete non-glass design, because Jest otherwise reports glass. The glass branches (tab bar, header actions, toast) are therefore verified only on an iOS 26 simulator.
+
+## Single-publication actions
+
+The Library integration tests cover title-only rename, blank/failed saves, isolated removal and cleanup recovery. The production SQLite tests cover schemas 0, 1 and 2 migrating to 3, removal rollback, durable cleanup records and actual host source/cache deletion with the production file adapter. Rendered tests cover shared menus, rename drafts and pending/error recovery, identified confirmation, cancellation and synchronization. `.maestro/publication-actions.yml` includes Favorites acceptance, then renames via the native menu, checks title search and relaunch, cancels one removal, confirms it, relaunches and reimports the intact provider original.

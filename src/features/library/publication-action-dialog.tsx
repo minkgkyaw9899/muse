@@ -1,0 +1,156 @@
+import { useEffect, useRef, useState } from 'react';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAppTheme } from '@/theme/theme-provider';
+import { ScrollList } from '@/ui/scroll-list';
+import type { Publication, RemovalResult, RenameResult } from './publication-library';
+
+export type PublicationAction = { kind: 'rename' | 'remove'; publication: Publication };
+
+/** One active dialog per collection; drafts survive errors and close only on a durable result. */
+export function PublicationActionDialog({
+  action,
+  onDismiss,
+  onRename,
+  onRemove,
+}: {
+  action: PublicationAction;
+  onDismiss(): void;
+  onRename(title: string): Promise<RenameResult>;
+  onRemove(): Promise<RemovalResult>;
+}) {
+  const { tokens } = useAppTheme();
+  const [draft, setDraft] = useState(action.publication.title);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const active = useRef(true);
+  useEffect(
+    () => () => {
+      active.current = false;
+    },
+    [],
+  );
+  async function submit() {
+    if (pending) return;
+    setPending(true);
+    setError(null);
+    try {
+      const result = action.kind === 'rename' ? await onRename(draft) : await onRemove();
+      if (!active.current) return;
+      if (result.status === 'error') setError(result.error.message);
+      else onDismiss();
+    } catch {
+      if (active.current)
+        setError(`Muse could not ${action.kind} this publication. Please try again.`);
+    } finally {
+      if (active.current) setPending(false);
+    }
+  }
+  return (
+    <Modal
+      visible
+      animationType="none"
+      onRequestClose={() => {
+        if (!pending) onDismiss();
+      }}
+    >
+      <SafeAreaView className="flex-1 bg-canvas" accessibilityViewIsModal>
+        <KeyboardAvoidingView
+          className="flex-1"
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <ScrollList
+            data={[]}
+            keyboardShouldPersistTaps="handled"
+            contentContainerClassName="grow px-5 py-6"
+            ListHeaderComponent={
+              <View className="gap-4">
+                <Text accessibilityRole="header" className="font-bold text-2xl text-text">
+                  {action.kind === 'rename' ? 'Rename publication' : 'Remove one publication?'}
+                </Text>
+                <Text selectable className="text-lg text-text">
+                  {action.publication.title}
+                </Text>
+                {action.kind === 'rename' ? (
+                  <>
+                    <Text className="text-base text-muted-text">Displayed title</Text>
+                    <TextInput
+                      accessibilityLabel="Publication title"
+                      value={draft}
+                      onChangeText={setDraft}
+                      editable={!pending}
+                      autoFocus
+                      selectTextOnFocus
+                      returnKeyType="done"
+                      onSubmitEditing={() => {
+                        void submit();
+                      }}
+                      placeholderTextColor={tokens.mutedText}
+                      className="min-h-11 rounded-xl border border-separator bg-surface px-4 py-3 text-base text-text"
+                    />
+                  </>
+                ) : (
+                  <Text selectable className="text-base text-muted-text">
+                    This removes this publication and its saved data from Muse. The original in
+                    Files is kept. This cannot be undone.
+                  </Text>
+                )}
+                {error ? (
+                  <Text
+                    selectable
+                    accessibilityLiveRegion="assertive"
+                    className="text-base text-destructive"
+                  >
+                    {error}
+                  </Text>
+                ) : null}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    action.kind === 'rename'
+                      ? 'Save title'
+                      : `Confirm removal of ${action.publication.title}`
+                  }
+                  disabled={pending}
+                  accessibilityState={{ disabled: pending, busy: pending }}
+                  onPress={() => {
+                    void submit();
+                  }}
+                  className="min-h-11 justify-center rounded-xl border border-separator bg-surface px-4 py-3 active:opacity-60"
+                >
+                  <Text
+                    className={
+                      action.kind === 'remove'
+                        ? 'text-base text-destructive'
+                        : 'text-accent-text text-base'
+                    }
+                  >
+                    {pending ? 'Saving…' : action.kind === 'rename' ? 'Save' : 'Remove'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={action.kind === 'rename' ? 'Cancel rename' : 'Cancel removal'}
+                  disabled={pending}
+                  accessibilityState={{ disabled: pending }}
+                  onPress={onDismiss}
+                  className="min-h-11 justify-center px-4 py-3"
+                >
+                  <Text className="text-accent-text text-base">Cancel</Text>
+                </Pressable>
+              </View>
+            }
+          />
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </Modal>
+  );
+}

@@ -36,11 +36,29 @@ function createBatchAdapters(names = ['Notes.pdf', 'Damaged.pdf', 'Notes copy.pd
       remove: async (path) => {
         files.delete(path);
       },
+      removePublication: async ({ ownedPath }) => {
+        files.delete(ownedPath);
+      },
       reconcile: async (keep) => {
         for (const path of files.keys()) if (!keep.includes(path)) files.delete(path);
       },
     },
     repository: {
+      listPendingRemovals: async () => [],
+      finishRemoval: async () => {},
+      beginRemoval: async (id) => {
+        const row = rows.get(id);
+        if (!row) return null;
+        rows.delete(id);
+        return { id, ownedPath: row.ownedPath };
+      },
+      rename: async (id, title) => {
+        const row = rows.get(id);
+        if (!row) return null;
+        const saved = { ...row, title };
+        rows.set(id, saved);
+        return saved;
+      },
       initialize: async () => {},
       list: async () => [...rows.values()],
       findByFingerprint: async (fingerprint) =>

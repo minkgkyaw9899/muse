@@ -11,6 +11,10 @@ import {
 } from 'react-native';
 
 import { getAppLibrary } from '@/features/library/app-library';
+import {
+  type PublicationAction,
+  PublicationActionDialog,
+} from '@/features/library/publication-action-dialog';
 import type {
   FileImportResult,
   Publication,
@@ -59,6 +63,7 @@ export function LibraryScreen({
   const [message, setMessage] = useState<string | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState<Set<string>>(new Set());
+  const [action, setAction] = useState<PublicationAction | null>(null);
 
   useEffect(() => {
     if (Platform.OS === 'ios' && message) AccessibilityInfo.announceForAccessibility(message);
@@ -201,145 +206,184 @@ export function LibraryScreen({
   );
   // The list must be the screen's first child: iOS finds the tab's scroll view there to minimize the bar.
   return (
-    <ScrollList
-      className="flex-1 bg-canvas"
-      data={visiblePublications}
-      keyExtractor={(publication) => publication.id}
-      estimatedItemSize={80}
-      recycleItems={false}
-      contentInsetAdjustmentBehavior="automatic"
-      contentContainerClassName="grow px-5 pb-8"
-      ListHeaderComponent={
-        <View className="gap-3 pt-4 pb-3">
-          {!searchOnly ? (
-            <View className="flex-row flex-wrap items-center justify-between gap-3">
-              <Text
-                accessibilityRole="header"
-                className="min-w-36 flex-1 font-bold text-4xl text-text"
-              >
-                {title}
-              </Text>
-              <View className="max-w-full flex-row flex-wrap items-center gap-2">
-                {headerSearchAvailable || favoritesOnly ? (
-                  <HeaderAction
-                    label={`Search ${title}`}
-                    icon={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
-                    onPress={() => setSearching(true)}
-                  />
-                ) : null}
-                {!favoritesOnly ? (
-                  <>
+    <>
+      <ScrollList
+        className="flex-1 bg-canvas"
+        data={visiblePublications}
+        keyExtractor={(publication) => publication.id}
+        estimatedItemSize={80}
+        recycleItems={false}
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerClassName="grow px-5 pb-8"
+        ListHeaderComponent={
+          <View className="gap-3 pt-4 pb-3">
+            {!searchOnly ? (
+              <View className="flex-row flex-wrap items-center justify-between gap-3">
+                <Text
+                  accessibilityRole="header"
+                  className="min-w-36 flex-1 font-bold text-4xl text-text"
+                >
+                  {title}
+                </Text>
+                <View className="max-w-full flex-row flex-wrap items-center gap-2">
+                  {headerSearchAvailable || favoritesOnly ? (
                     <HeaderAction
-                      label="Import PDFs"
-                      hint="Add PDFs to your Library"
-                      icon={{ ios: 'plus', android: 'add', web: 'add' }}
-                      disabled={loading || loadFailed || importing}
-                      onPress={() => {
-                        void onImport();
-                      }}
+                      label={`Search ${title}`}
+                      icon={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
+                      onPress={() => setSearching(true)}
                     />
-                    <HeaderAction
-                      label="Edit Library"
-                      hint="Library editing is coming later"
-                      text="Edit"
-                      disabled
-                    />
-                  </>
-                ) : null}
+                  ) : null}
+                  {!favoritesOnly ? (
+                    <>
+                      <HeaderAction
+                        label="Import PDFs"
+                        hint="Add PDFs to your Library"
+                        icon={{ ios: 'plus', android: 'add', web: 'add' }}
+                        disabled={loading || loadFailed || importing}
+                        onPress={() => {
+                          void onImport();
+                        }}
+                      />
+                      <HeaderAction
+                        label="Edit Library"
+                        hint="Library editing is coming later"
+                        text="Edit"
+                        disabled
+                      />
+                    </>
+                  ) : null}
+                </View>
               </View>
-            </View>
-          ) : null}
-          {searching && !searchOnly ? (
-            <View className="flex-row flex-wrap items-center gap-2">
-              <TextInput
-                accessibilityLabel={`Search ${title} titles`}
-                placeholder={`Search ${title}`}
-                placeholderTextColor={tokens.mutedText}
-                autoFocus
-                autoCapitalize="none"
-                autoCorrect={false}
-                value={localQuery}
-                onChangeText={setLocalQuery}
-                returnKeyType="search"
-                className="min-h-14 min-w-36 flex-1 rounded-full border border-separator bg-surface px-4 text-base text-text"
-              />
+            ) : null}
+            {searching && !searchOnly ? (
+              <View className="flex-row flex-wrap items-center gap-2">
+                <TextInput
+                  accessibilityLabel={`Search ${title} titles`}
+                  placeholder={`Search ${title}`}
+                  placeholderTextColor={tokens.mutedText}
+                  autoFocus
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  value={localQuery}
+                  onChangeText={setLocalQuery}
+                  returnKeyType="search"
+                  className="min-h-14 min-w-36 flex-1 rounded-full border border-separator bg-surface px-4 text-base text-text"
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel search"
+                  onPress={() => {
+                    setSearching(false);
+                    setLocalQuery('');
+                    Keyboard.dismiss();
+                  }}
+                  className="min-h-11 justify-center px-2 active:opacity-60"
+                >
+                  <Text className="text-accent-text text-base">Cancel</Text>
+                </Pressable>
+              </View>
+            ) : null}
+            {message ? (
+              <Text accessibilityLiveRegion="polite" className="text-base text-muted-text">
+                {message}
+              </Text>
+            ) : null}
+            {loadFailed ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Cancel search"
+                accessibilityLabel={`Retry loading ${title}`}
                 onPress={() => {
-                  setSearching(false);
-                  setLocalQuery('');
-                  Keyboard.dismiss();
+                  setLoading(true);
+                  setLoadFailed(false);
+                  setMessage(null);
+                  reload.current();
                 }}
-                className="min-h-11 justify-center px-2 active:opacity-60"
+                className="min-h-11 justify-center rounded-full border border-separator bg-surface px-4 active:opacity-60"
               >
-                <Text className="text-accent-text text-base">Cancel</Text>
+                <Text className="text-accent-text text-base">Try again</Text>
               </Pressable>
-            </View>
-          ) : null}
-          {message ? (
-            <Text accessibilityLiveRegion="polite" className="text-base text-muted-text">
-              {message}
+            ) : null}
+          </View>
+        }
+        renderItem={({ item }) => (
+          <PublicationRow
+            publication={item}
+            saving={saving.has(item.id)}
+            onFavorite={() => {
+              void onFavorite(item);
+            }}
+            onRename={() => setAction({ kind: 'rename', publication: item })}
+            onRemove={() => setAction({ kind: 'remove', publication: item })}
+          />
+        )}
+        ListEmptyComponent={
+          loading ? (
+            <ActivityIndicator
+              accessibilityLabel={`Loading ${title}`}
+              colorClassName="accent-accent"
+            />
+          ) : null
+        }
+        keyboardShouldPersistTaps="handled"
+        ListFooterComponent={
+          !loading && !loadFailed && query && visiblePublications.length === 0 ? (
+            <Text accessibilityLiveRegion="polite" className="py-6 text-base text-muted-text">
+              {favoritesOnly ? 'No matching favorites' : 'No matching publications'}
             </Text>
-          ) : null}
-          {loadFailed ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Retry loading ${title}`}
-              onPress={() => {
-                setLoading(true);
-                setLoadFailed(false);
-                setMessage(null);
-                reload.current();
-              }}
-              className="min-h-11 justify-center rounded-full border border-separator bg-surface px-4 active:opacity-60"
-            >
-              <Text className="text-accent-text text-base">Try again</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      }
-      renderItem={({ item }) => (
-        <PublicationRow
-          publication={item}
-          saving={saving.has(item.id)}
-          onFavorite={() => {
-            void onFavorite(item);
+          ) : !loading && !loadFailed && collection.length === 0 ? (
+            <View className="min-h-80">
+              <EmptyState
+                icon={
+                  favoritesOnly
+                    ? { ios: 'heart', android: 'favorite', web: 'favorite' }
+                    : { ios: 'books.vertical', android: 'library_books', web: 'library_books' }
+                }
+                title={favoritesOnly ? 'No favorites yet' : 'Your library is empty'}
+                description={
+                  favoritesOnly
+                    ? 'Mark a publication as a favorite to find it here quickly.'
+                    : 'Publications you import will appear here.'
+                }
+              />
+            </View>
+          ) : null
+        }
+      />
+      {action ? (
+        <PublicationActionDialog
+          key={`${action.kind}-${action.publication.id}`}
+          action={action}
+          onDismiss={() => setAction(null)}
+          onRename={async (draft) => {
+            const result = await library.rename(action.publication.id, draft);
+            if (mounted.current && result.status === 'saved') {
+              readVersion.current += 1;
+              setPublications((current) =>
+                current.map((row) => (row.id === result.publication.id ? result.publication : row)),
+              );
+              reload.current();
+            }
+            return result;
+          }}
+          onRemove={async () => {
+            const result = await library.remove(action.publication.id);
+            if (mounted.current && result.status === 'removed') {
+              readVersion.current += 1;
+              pendingImportedIds.current.delete(action.publication.id);
+              setPublications((current) =>
+                current.filter((row) => row.id !== action.publication.id),
+              );
+              reload.current();
+              if (result.cleanupPending)
+                toast.show({
+                  kind: 'error',
+                  message: 'Publication removed. Reopen Muse to finish freeing its storage.',
+                });
+            }
+            return result;
           }}
         />
-      )}
-      ListEmptyComponent={
-        loading ? (
-          <ActivityIndicator
-            accessibilityLabel={`Loading ${title}`}
-            colorClassName="accent-accent"
-          />
-        ) : null
-      }
-      keyboardShouldPersistTaps="handled"
-      ListFooterComponent={
-        !loading && !loadFailed && query && visiblePublications.length === 0 ? (
-          <Text accessibilityLiveRegion="polite" className="py-6 text-base text-muted-text">
-            {favoritesOnly ? 'No matching favorites' : 'No matching publications'}
-          </Text>
-        ) : !loading && !loadFailed && collection.length === 0 ? (
-          <View className="min-h-80">
-            <EmptyState
-              icon={
-                favoritesOnly
-                  ? { ios: 'heart', android: 'favorite', web: 'favorite' }
-                  : { ios: 'books.vertical', android: 'library_books', web: 'library_books' }
-              }
-              title={favoritesOnly ? 'No favorites yet' : 'Your library is empty'}
-              description={
-                favoritesOnly
-                  ? 'Mark a publication as a favorite to find it here quickly.'
-                  : 'Publications you import will appear here.'
-              }
-            />
-          </View>
-        ) : null
-      }
-    />
+      ) : null}
+    </>
   );
 }

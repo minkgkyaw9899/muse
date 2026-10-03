@@ -11,10 +11,13 @@ const picked = {
 function createAdapters() {
   const rows = new Map<string, Publication>();
   const files = new Set<string>();
+  const caches = new Set<string>();
+  const removals = new Map<string, Pick<Publication, 'id' | 'ownedPath'>>();
   const released: string[] = [];
   return {
     rows,
     files,
+    caches,
     released,
     picker: {
       pickMany: async () => [],
@@ -45,6 +48,10 @@ function createAdapters() {
       remove: async (path: string) => {
         files.delete(path);
       },
+      removePublication: async ({ id, ownedPath }: Pick<Publication, 'id' | 'ownedPath'>) => {
+        files.delete(ownedPath);
+        caches.delete(id);
+      },
       reconcile: async (keep: readonly string[]) => {
         for (const path of files) if (!keep.includes(path)) files.delete(path);
       },
@@ -63,6 +70,25 @@ function createAdapters() {
         const saved = { ...publication, isFavorite };
         rows.set(id, saved);
         return saved;
+      },
+      rename: async (id: string, title: string) => {
+        const publication = rows.get(id);
+        if (!publication) return null;
+        const saved = { ...publication, title };
+        rows.set(id, saved);
+        return saved;
+      },
+      beginRemoval: async (id: string) => {
+        const publication = rows.get(id);
+        if (!publication) return removals.get(id) ?? null;
+        const pending = { id, ownedPath: publication.ownedPath };
+        removals.set(id, pending);
+        rows.delete(id);
+        return pending;
+      },
+      listPendingRemovals: async () => [...removals.values()],
+      finishRemoval: async (id: string) => {
+        removals.delete(id);
       },
     },
     renderer: {
@@ -86,6 +112,98 @@ function createAdapters() {
 }
 
 describe('PublicationLibrary', () => {
+  it('rejects blank titles and retains the saved title when rename storage fails', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    await library.importOne();
+    await expect(library.rename('publication-1', '  ')).resolves.toMatchObject({
+      status: 'error',
+      error: { category: 'invalidTitle' },
+    });
+    adapters.repository.rename = async () => {
+      throw new Error('private filename');
+    };
+    await expect(library.rename('publication-1', 'Revised')).resolves.toEqual({
+      status: 'error',
+      error: {
+        category: 'storage',
+        message: 'Muse could not rename this publication. Please try again.',
+      },
+    });
+    expect(await library.list()).toEqual([expect.objectContaining({ title: 'Field Notes' })]);
+  });
+
+  it('keeps the source, cache and row when removal cannot commit', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    await library.importOne();
+    adapters.caches.add('publication-1');
+    adapters.repository.beginRemoval = async () => {
+      throw new Error('private filename');
+    };
+    const changed = jest.fn();
+    library.subscribe(changed);
+    await expect(library.remove('publication-1')).resolves.toMatchObject({
+      status: 'error',
+      error: { category: 'storage' },
+    });
+    expect(await library.list()).toEqual([expect.objectContaining({ id: 'publication-1' })]);
+    expect(adapters.files).toEqual(new Set(['publications/publication-1.pdf']));
+    expect(adapters.caches).toEqual(new Set(['publication-1']));
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it('removes only the identified publication and recovers interrupted file cleanup on relaunch', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    await library.importOne();
+    const [original] = await library.list();
+    const other = { ...original, id: 'other', ownedPath: 'publications/other.pdf' };
+    adapters.rows.set(other.id, other);
+    adapters.files.add(other.ownedPath);
+    adapters.caches.add(original.id);
+    adapters.caches.add(other.id);
+    const cleanup = adapters.fileStore.removePublication;
+    adapters.fileStore.removePublication = async () => {
+      throw new Error('interrupted');
+    };
+    const changed = jest.fn();
+    library.subscribe(changed);
+    await expect(library.remove(original.id)).resolves.toEqual({
+      status: 'removed',
+      cleanupPending: true,
+    });
+    expect(await library.list()).toEqual([other]);
+    expect(changed).toHaveBeenCalledTimes(1);
+    adapters.fileStore.removePublication = cleanup;
+    expect(await createPublicationLibrary(adapters).list()).toEqual([other]);
+    expect(adapters.files).toEqual(new Set(['publications/other.pdf']));
+    expect(adapters.caches).toEqual(new Set(['other']));
+    await expect(library.remove('missing')).resolves.toMatchObject({
+      status: 'error',
+      error: { category: 'notFound' },
+    });
+  });
+
+  it('renames the displayed title durably while retaining its source identity and favorite', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    await library.importOne();
+    await library.setFavorite('publication-1', true);
+    const [before] = await library.list();
+    const changed = jest.fn();
+    library.subscribe(changed);
+    await expect(library.rename('publication-1', '  Research notes  ')).resolves.toEqual({
+      status: 'saved',
+      publication: { ...before, title: 'Research notes' },
+    });
+    expect(await createPublicationLibrary(adapters).list()).toEqual([
+      { ...before, title: 'Research notes' },
+    ]);
+    expect(adapters.files).toEqual(new Set(['publications/publication-1.pdf']));
+    expect(changed).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps concurrent favorite choices in request order when the first durable write is slow', async () => {
     const adapters = createAdapters();
     const library = createPublicationLibrary(adapters);

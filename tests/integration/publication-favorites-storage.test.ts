@@ -1,6 +1,9 @@
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { join } from 'node:path';
 import type { DatabaseSync as NodeDatabase, SQLInputValue } from 'node:sqlite';
 import {
+  createExpoPublicationFileStore,
   createSQLitePublicationRepository,
   type SQLitePublicationDatabase,
 } from '@/features/library/expo-publication-adapters';
@@ -14,6 +17,55 @@ jest.mock('expo-sqlite', () => ({
     throw new Error('Expected an injected SQLite connection');
   },
 }));
+
+// A filesystem adapter backed by host files; production ownership/cleanup code still runs.
+jest.mock('expo-file-system', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const root = fs.mkdtempSync('/tmp/muse-publication-actions-');
+  class File {
+    uri: string;
+    constructor(...parts: (string | { uri: string })[]) {
+      this.uri = path.join(...parts.map((part) => (typeof part === 'string' ? part : part.uri)));
+    }
+    get exists() {
+      return fs.existsSync(this.uri);
+    }
+    get name() {
+      return path.basename(this.uri);
+    }
+    delete() {
+      fs.unlinkSync(this.uri);
+    }
+  }
+  class Directory extends File {
+    create() {
+      fs.mkdirSync(this.uri, { recursive: true });
+    }
+    list() {
+      return fs
+        .readdirSync(this.uri, { withFileTypes: true })
+        .map((entry: { name: string; isDirectory(): boolean }) =>
+          entry.isDirectory()
+            ? new Directory(this.uri, entry.name)
+            : new File(this.uri, entry.name),
+        );
+    }
+    delete() {
+      fs.rmSync(this.uri, { recursive: true });
+    }
+  }
+  return {
+    File,
+    Directory,
+    Paths: { document: path.join(root, 'documents'), cache: path.join(root, 'cache') },
+  };
+});
+
+const hostPaths = jest.requireMock('expo-file-system').Paths as { document: string; cache: string };
+afterAll(() => {
+  rmSync(join(hostPaths.document, '..'), { recursive: true, force: true });
+});
 
 // Use the host SQLite engine rather than mocking SQL. createRequire bypasses Jest's
 // resolver, which predates Node's built-in SQLite module.
@@ -51,6 +103,7 @@ function libraryFor(
   database: NodeDatabase,
   connection = sqliteConnection(database),
   openDatabase = async () => connection,
+  removePublication: PublicationLibraryDependencies['fileStore']['removePublication'] = async () => {},
 ) {
   const repository = createSQLitePublicationRepository(openDatabase);
   const dependencies: PublicationLibraryDependencies = {
@@ -71,6 +124,7 @@ function libraryFor(
       }),
       promote: async () => ({ uri: 'file:///owned', relativePath: 'publications/new.pdf' }),
       remove: async () => {},
+      removePublication,
       reconcile: async () => {},
     },
     renderer: {
@@ -212,7 +266,7 @@ it('rolls back an interrupted migration so a later launch can safely upgrade the
 it('rejects a newer unsupported Library schema with safe favorite recovery guidance', async () => {
   const database = new DatabaseSync(':memory:');
   try {
-    database.exec('PRAGMA user_version = 3');
+    database.exec('PRAGMA user_version = 4');
     const library = libraryFor(database);
     await expect(library.setFavorite('original', true)).resolves.toEqual({
       status: 'error',
@@ -281,6 +335,129 @@ it('reopens storage when a reader retries loading after a failed connection atte
       status: 'saved',
       publication: { id: 'original', isFavorite: true },
     });
+  } finally {
+    database.close();
+  }
+});
+
+it('persists renamed metadata and resumes an interrupted removal without removing another publication', async () => {
+  const database = new DatabaseSync(':memory:');
+  try {
+    seedSchemaOne(database);
+    const connection = sqliteConnection(database);
+    let interrupted = true;
+    const remainingFiles = new Set(['publications/original.pdf', 'publications/new.pdf']);
+    const remainingCaches = new Set(['original', 'new']);
+    const cleanup: PublicationLibraryDependencies['fileStore']['removePublication'] = async ({
+      id,
+      ownedPath,
+    }) => {
+      if (interrupted) throw new Error('interrupted cleanup');
+      remainingFiles.delete(ownedPath);
+      remainingCaches.delete(id);
+    };
+    const library = libraryFor(database, connection, async () => connection, cleanup);
+    await library.importOne();
+    await expect(library.rename('original', "Reader's revised notes")).resolves.toMatchObject({
+      status: 'saved',
+    });
+    await expect(libraryFor(database).list()).resolves.toContainEqual(
+      expect.objectContaining({
+        id: 'original',
+        title: "Reader's revised notes",
+        ownedPath: 'publications/original.pdf',
+        sourceFilename: 'Field Notes.pdf',
+      }),
+    );
+    await expect(library.remove('original')).resolves.toEqual({
+      status: 'removed',
+      cleanupPending: true,
+    });
+    expect(await library.list()).toEqual([expect.objectContaining({ id: 'new' })]);
+    interrupted = false;
+    expect(await libraryFor(database, connection, async () => connection, cleanup).list()).toEqual([
+      expect.objectContaining({ id: 'new' }),
+    ]);
+    expect(remainingFiles).toEqual(new Set(['publications/new.pdf']));
+    expect(remainingCaches).toEqual(new Set(['new']));
+  } finally {
+    database.close();
+  }
+});
+
+it('migrates schema-2 favorites to recoverable removal without losing metadata', async () => {
+  const database = new DatabaseSync(':memory:');
+  try {
+    seedSchemaOne(database);
+    database.exec(
+      'ALTER TABLE publications ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0; UPDATE publications SET is_favorite = 1; PRAGMA user_version = 2;',
+    );
+    const library = libraryFor(database);
+    expect(await library.list()).toEqual([
+      expect.objectContaining({ title: 'Field Notes', isFavorite: true }),
+    ]);
+    await expect(library.remove('original')).resolves.toEqual({
+      status: 'removed',
+      cleanupPending: false,
+    });
+    expect(await libraryFor(database).list()).toEqual([]);
+  } finally {
+    database.close();
+  }
+});
+
+it('rolls back failed removal before deleting source files or exposing a change', async () => {
+  const database = new DatabaseSync(':memory:');
+  try {
+    seedSchemaOne(database);
+    const cleanup = jest.fn(async () => {});
+    const connection = sqliteConnection(database);
+    const library = libraryFor(database, connection, async () => connection, cleanup);
+    await library.list();
+    database.exec(
+      "CREATE TRIGGER reject_remove BEFORE DELETE ON publications BEGIN SELECT RAISE(ABORT, 'private source'); END;",
+    );
+    await expect(library.remove('original')).resolves.toMatchObject({
+      status: 'error',
+      error: { category: 'storage' },
+    });
+    expect(await library.list()).toEqual([expect.objectContaining({ id: 'original' })]);
+    expect(cleanup).not.toHaveBeenCalled();
+    expect(await libraryFor(database).list()).toEqual([
+      expect.objectContaining({ id: 'original' }),
+    ]);
+  } finally {
+    database.close();
+  }
+});
+
+it('deletes the selected owned source and nested renditions while preserving other files through the production file adapter', async () => {
+  const database = new DatabaseSync(':memory:');
+  try {
+    seedSchemaOne(database);
+    const connection = sqliteConnection(database);
+    const library = libraryFor(
+      database,
+      connection,
+      async () => connection,
+      createExpoPublicationFileStore().removePublication,
+    );
+    await library.importOne();
+    for (const id of ['original', 'new']) {
+      mkdirSync(join(hostPaths.document, 'publications'), { recursive: true });
+      writeFileSync(join(hostPaths.document, 'publications', `${id}.pdf`), 'owned fixture');
+      mkdirSync(join(hostPaths.cache, 'renditions', id, 'tiles'), { recursive: true });
+      writeFileSync(join(hostPaths.cache, 'renditions', id, 'tiles', 'page.png'), 'cached fixture');
+    }
+    await expect(library.remove('original')).resolves.toEqual({
+      status: 'removed',
+      cleanupPending: false,
+    });
+    expect(existsSync(join(hostPaths.document, 'publications', 'original.pdf'))).toBe(false);
+    expect(existsSync(join(hostPaths.cache, 'renditions', 'original'))).toBe(false);
+    expect(existsSync(join(hostPaths.document, 'publications', 'new.pdf'))).toBe(true);
+    expect(existsSync(join(hostPaths.cache, 'renditions', 'new', 'tiles', 'page.png'))).toBe(true);
+    expect(await library.list()).toEqual([expect.objectContaining({ id: 'new' })]);
   } finally {
     database.close();
   }

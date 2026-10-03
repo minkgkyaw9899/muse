@@ -46,6 +46,19 @@ function collection(initial: Publication[] = [fieldNotes]): PublicationLibrary {
       for (const observer of observers) observer();
       return { status: 'saved', publication };
     },
+    rename: async (id, title) => {
+      const existing = rows.find((row) => row.id === id);
+      if (!existing) throw new Error('Unknown fixture');
+      const publication = { ...existing, title: title.trim() };
+      rows = rows.map((row) => (row.id === id ? publication : row));
+      for (const observer of observers) observer();
+      return { status: 'saved', publication };
+    },
+    remove: async (id) => {
+      rows = rows.filter((row) => row.id !== id);
+      for (const observer of observers) observer();
+      return { status: 'removed', cleanupPending: false };
+    },
     importOne: async () => ({ status: 'cancelled' }),
     importMany: async () => ({ status: 'cancelled', results: [] }),
   };
@@ -88,6 +101,113 @@ it('favorites from Library, updates Favorites, and unfavorites from the other co
   expect(await screen.findByText('No favorites yet')).toBeTruthy();
   expect(screen.getAllByRole('button', { name: 'Favorite Field Notes' })).toHaveLength(1);
   expect(await library.list()).toEqual([fieldNotes]);
+});
+
+it('offers a labeled three-dot menu and renames a title across Library and Favorites', async () => {
+  const library = collection([{ ...fieldNotes, isFavorite: true }]);
+  await render(
+    providers(
+      <>
+        <LibraryScreen library={library} />
+        <FavoritesScreen library={library} />
+      </>,
+    ),
+  );
+  const menus = await screen.findAllByRole('button', {
+    name: 'Publication actions for Field Notes',
+  });
+  await fireEvent.press(menus[0]);
+  await fireEvent.press(screen.getByRole('button', { name: 'Rename Field Notes' }));
+  await fireEvent.changeText(screen.getByLabelText('Publication title'), 'Research notes');
+  await fireEvent.press(screen.getByRole('button', { name: 'Save title' }));
+  expect(await screen.findAllByText('Research notes')).toHaveLength(2);
+  expect(await library.list()).toEqual([
+    { ...fieldNotes, isFavorite: true, title: 'Research notes' },
+  ]);
+});
+
+it('identifies one publication for removal, preserves it on cancel, and updates both collections on confirmation', async () => {
+  const other = { ...fieldNotes, id: 'other', title: 'Other notes' };
+  const library = collection([{ ...fieldNotes, isFavorite: true }, other]);
+  await render(
+    providers(
+      <>
+        <LibraryScreen library={library} />
+        <FavoritesScreen library={library} />
+      </>,
+    ),
+  );
+  let menus = await screen.findAllByRole('button', { name: 'Publication actions for Field Notes' });
+  await fireEvent.press(menus[1]);
+  await fireEvent.press(screen.getByRole('button', { name: 'Remove Field Notes' }));
+  expect(screen.getByRole('header', { name: 'Remove one publication?' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Confirm removal of Field Notes' })).toBeTruthy();
+  await fireEvent.press(screen.getByRole('button', { name: 'Cancel removal' }));
+  expect(await library.list()).toHaveLength(2);
+  menus = screen.getAllByRole('button', { name: 'Publication actions for Field Notes' });
+  await fireEvent.press(menus[0]);
+  await fireEvent.press(screen.getByRole('button', { name: 'Remove Field Notes' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Confirm removal of Field Notes' }));
+  expect(await screen.findByText('No favorites yet')).toBeTruthy();
+  expect(screen.queryByText('Field Notes')).toBeNull();
+  expect(screen.getByText('Other notes')).toBeTruthy();
+  expect(await library.list()).toEqual([other]);
+});
+
+it('retains a rename draft on failure and disables submission while a retry is pending', async () => {
+  const library = collection();
+  const save = library.rename;
+  let succeed!: () => void;
+  let attempt = 0;
+  library.rename = async (id, title) => {
+    if (++attempt === 1)
+      return {
+        status: 'error',
+        error: { category: 'storage', message: 'Please retry this rename.' },
+      };
+    await new Promise<void>((resolve) => {
+      succeed = resolve;
+    });
+    return save(id, title);
+  };
+  await render(providers(<LibraryScreen library={library} />));
+  await fireEvent.press(
+    await screen.findByRole('button', { name: 'Publication actions for Field Notes' }),
+  );
+  await fireEvent.press(screen.getByRole('button', { name: 'Rename Field Notes' }));
+  await fireEvent.changeText(screen.getByLabelText('Publication title'), 'Draft title');
+  await fireEvent.press(screen.getByRole('button', { name: 'Save title' }));
+  expect(await screen.findByText('Please retry this rename.')).toBeTruthy();
+  expect(screen.getByLabelText('Publication title')).toHaveDisplayValue('Draft title');
+  await fireEvent.press(screen.getByRole('button', { name: 'Save title' }));
+  expect(screen.getByRole('button', { name: 'Save title' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Cancel rename' })).toBeDisabled();
+  await act(async () => {
+    succeed();
+  });
+  expect(await screen.findByText('Draft title')).toBeTruthy();
+  expect(screen.queryByLabelText('Publication title')).toBeNull();
+});
+
+it('keeps the publication and confirmation after a failed removal, then permits a retry', async () => {
+  const library = collection();
+  const remove = library.remove;
+  let fails = true;
+  library.remove = async (id) =>
+    fails
+      ? { status: 'error', error: { category: 'storage', message: 'Please retry this removal.' } }
+      : remove(id);
+  await render(providers(<LibraryScreen library={library} />));
+  await fireEvent.press(
+    await screen.findByRole('button', { name: 'Publication actions for Field Notes' }),
+  );
+  await fireEvent.press(screen.getByRole('button', { name: 'Remove Field Notes' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Confirm removal of Field Notes' }));
+  expect(await screen.findByText('Please retry this removal.')).toBeTruthy();
+  expect(await library.list()).toEqual([fieldNotes]);
+  fails = false;
+  await fireEvent.press(screen.getByRole('button', { name: 'Confirm removal of Field Notes' }));
+  expect(await screen.findByText('Your library is empty')).toBeTruthy();
 });
 
 it('keeps a saved favorite when an older collection read completes later', async () => {

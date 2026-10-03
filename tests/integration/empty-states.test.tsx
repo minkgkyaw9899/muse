@@ -10,6 +10,8 @@ import { ToastProvider } from '@/ui/toast';
 const emptyLibrary: PublicationLibrary = {
   list: async () => [],
   subscribe: () => () => {},
+  rename: async () => ({ status: 'error', error: { category: 'notFound', message: 'Not found' } }),
+  remove: async () => ({ status: 'error', error: { category: 'notFound', message: 'Not found' } }),
   setFavorite: async () => ({
     status: 'error',
     error: { category: 'notFound', message: 'Not found' },

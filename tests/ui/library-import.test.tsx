@@ -17,16 +17,25 @@ import { ToastProvider } from '@/ui/toast';
 // Exercise the supported non-glass controls; native glass presentation is checked on simulator.
 jest.mock('@/theme/glass-capability', () => ({ detectTabBarKind: () => 'fallback' }));
 
-const favoriteActions: Pick<PublicationLibrary, 'subscribe' | 'setFavorite'> = {
-  subscribe: () => () => {},
-  setFavorite: async () => ({
-    status: 'error',
-    error: {
-      category: 'storage',
-      message: 'Favorite changes are unavailable in this import adapter.',
-    },
-  }),
-};
+const favoriteActions: Pick<PublicationLibrary, 'subscribe' | 'setFavorite' | 'rename' | 'remove'> =
+  {
+    rename: async () => ({
+      status: 'error',
+      error: { category: 'storage', message: 'Rename unavailable in this import adapter.' },
+    }),
+    remove: async () => ({
+      status: 'error',
+      error: { category: 'storage', message: 'Removal unavailable in this import adapter.' },
+    }),
+    subscribe: () => () => {},
+    setFavorite: async () => ({
+      status: 'error',
+      error: {
+        category: 'storage',
+        message: 'Favorite changes are unavailable in this import adapter.',
+      },
+    }),
+  };
 
 const publication: Publication = {
   isFavorite: false,

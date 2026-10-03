@@ -13,6 +13,7 @@ import {
   createPublicationLibrary,
   LibraryAdapterError,
   MAX_IMPORT_BYTES,
+  type PendingPublicationRemoval,
   type PickedPublication,
   type Publication,
   type PublicationLibrary,
@@ -177,6 +178,13 @@ export function createExpoPublicationFileStore(): PublicationLibraryDependencies
       }
     },
     remove: removeIfPresent,
+    async removePublication({ id, ownedPath }) {
+      if (!/^[a-zA-Z0-9_-]+$/.test(id) || ownedPath !== `${PUBLICATIONS}/${id}.pdf`)
+        throw new LibraryAdapterError('storage');
+      await removeIfPresent(ownedPath);
+      const cache = new Directory(Paths.cache, 'renditions', id);
+      if (cache.exists) cache.delete();
+    },
     async reconcile(referencedPaths) {
       const keep = new Set(referencedPaths);
       for (const name of [STAGING, PUBLICATIONS]) {
@@ -257,8 +265,8 @@ export function createSQLitePublicationRepository(
       await database.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
       const version = await database.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
       const schemaVersion = version?.user_version ?? 0;
-      if (schemaVersion > 2) throw new LibraryAdapterError('storage');
-      if (schemaVersion < 2) {
+      if (schemaVersion > 3) throw new LibraryAdapterError('storage');
+      if (schemaVersion < 3) {
         await database.withExclusiveTransactionAsync(async (transaction) => {
           if (schemaVersion === 0)
             await transaction.execAsync(`
@@ -275,10 +283,17 @@ export function createSQLitePublicationRepository(
               owned_path TEXT NOT NULL UNIQUE
             );
           `);
-          await transaction.execAsync(`
+          if (schemaVersion < 2)
+            await transaction.execAsync(`
             ALTER TABLE publications ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0
               CHECK (is_favorite IN (0, 1));
-            PRAGMA user_version = 2;
+          `);
+          await transaction.execAsync(`
+            CREATE TABLE pending_publication_removals (
+              id TEXT PRIMARY KEY NOT NULL,
+              owned_path TEXT NOT NULL UNIQUE
+            );
+            PRAGMA user_version = 3;
           `);
         });
       }
@@ -332,6 +347,53 @@ export function createSQLitePublicationRepository(
         );
       });
       return saved ? toPublication(saved) : null;
+    },
+    async rename(id, title) {
+      const database = await db();
+      let saved: PublicationRow | null = null;
+      await database.withExclusiveTransactionAsync(async (transaction) => {
+        await transaction.runAsync('UPDATE publications SET title = ? WHERE id = ?', title, id);
+        saved = await transaction.getFirstAsync<PublicationRow>(
+          'SELECT * FROM publications WHERE id = ?',
+          id,
+        );
+      });
+      return saved ? toPublication(saved) : null;
+    },
+    async beginRemoval(id) {
+      const database = await db();
+      let pending: PendingPublicationRemoval | null = null;
+      await database.withExclusiveTransactionAsync(async (transaction) => {
+        const publication = await transaction.getFirstAsync<PublicationRow>(
+          'SELECT * FROM publications WHERE id = ?',
+          id,
+        );
+        if (publication) {
+          await transaction.runAsync(
+            'INSERT INTO pending_publication_removals (id, owned_path) VALUES (?, ?)',
+            id,
+            publication.owned_path,
+          );
+          await transaction.runAsync('DELETE FROM publications WHERE id = ?', id);
+          pending = { id, ownedPath: publication.owned_path };
+        } else {
+          const row = await transaction.getFirstAsync<{ id: string; owned_path: string }>(
+            'SELECT * FROM pending_publication_removals WHERE id = ?',
+            id,
+          );
+          if (row) pending = { id: row.id, ownedPath: row.owned_path };
+        }
+      });
+      return pending;
+    },
+    async listPendingRemovals() {
+      const rows = await (await db()).getAllAsync<{ id: string; owned_path: string }>(
+        'SELECT * FROM pending_publication_removals ORDER BY id',
+      );
+      return rows.map((row) => ({ id: row.id, ownedPath: row.owned_path }));
+    },
+    async finishRemoval(id) {
+      await (await db()).runAsync('DELETE FROM pending_publication_removals WHERE id = ?', id);
     },
   };
 }
