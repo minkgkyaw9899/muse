@@ -2,6 +2,8 @@
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 
+import { parseKeyValueLines } from '../support/key-value-lines';
+
 const script = join(__dirname, '../../scripts/ci-plan-build.sh');
 
 type Plan = { run_build: string; fresh: string };
@@ -14,12 +16,7 @@ function plan(event: string, changed: string[], env: Record<string, string> = {}
     env: { NODE_ENV: 'test', PATH: process.env.PATH ?? '', EVENT: event, ...env },
   });
   expect(result.status).toBe(0);
-  return Object.fromEntries(
-    result.stdout
-      .split('\n')
-      .filter((line) => line.includes('='))
-      .map((line) => line.split('=') as [string, string]),
-  ) as Plan;
+  return parseKeyValueLines(result.stdout) as Plan;
 }
 
 describe('iOS build planning', () => {
@@ -56,7 +53,7 @@ describe('iOS build planning', () => {
     expect(plan('pull_request', many.slice(0, 150)).fresh).toBe('false');
   });
 
-  it('skips the macOS build when a push to develop only changes documentation', () => {
+  it('skips the macOS build when a push only changes documentation', () => {
     expect(plan('push', ['docs/agents/issue-tracker.md']).run_build).toBe('false');
   });
 

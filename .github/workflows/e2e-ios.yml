@@ -19,7 +19,9 @@ permissions:
 
 concurrency:
   group: ios-maestro-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Only a newer push to the same pull request supersedes a run. A run on develop must finish, or its
+  # cache is never saved (a docs-only push would otherwise cancel an in-flight native build).
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   # Bump the repository variable NATIVE_CACHE_VERSION to invalidate every native cache
@@ -44,7 +46,7 @@ jobs:
           fetch-depth: 0
 
       # Decide how much work this run needs.
-      #   run_build=false  the pull request only touches docs, so skip the macOS build.
+      #   run_build=false  the pull request or push only touches docs, so skip the macOS build.
       #   fresh=true       native inputs changed a lot (lockfile, app config, local modules or
       #                    plugins) or the diff is large, so do not restore a stale fallback cache.
       - name: Plan build and cache use
@@ -59,7 +61,7 @@ jobs:
           changed=""
           # An unknown base (new branch, rewritten history, manual run) leaves the list empty, and the
           # planning script then builds.
-          if [ "$EVENT" != "workflow_dispatch" ] && git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+          if git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
             changed=$(git diff --name-only "$BASE_SHA"...HEAD)
           fi
           echo "Changed files: $(printf '%s\n' "$changed" | grep -c . || true)"
@@ -122,8 +124,20 @@ jobs:
       - name: Configure ccache
         if: steps.plan.outputs.run_build == 'true'
         run: |
-          scripts/ci-ccache-env.sh >> "$GITHUB_ENV"
+          env_lines=$(scripts/ci-ccache-env.sh)
+          printf '%s\n' "$env_lines" >> "$GITHUB_ENV"
+          # GITHUB_ENV only reaches later steps, and --zero-stats must see CCACHE_DIR now.
+          while IFS= read -r line; do export "$line"; done <<< "$env_lines"
           ccache --zero-stats
+
+      # Booting takes 2 to 3 minutes. Start it before the MuPDF and app builds and wait for it after
+      # them, since neither needs a running simulator.
+      - name: Start iPhone simulator
+        if: steps.plan.outputs.run_build == 'true'
+        run: |
+          DEVICE_ID=$(xcrun simctl create 'Muse E2E' com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro com.apple.CoreSimulator.SimRuntime.iOS-26-5)
+          xcrun simctl boot "$DEVICE_ID"
+          echo "MAESTRO_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
 
       - name: Test native publication sources
         if: steps.plan.outputs.run_build == 'true'
@@ -132,15 +146,6 @@ jobs:
       - name: Build pinned MuPDF for simulator import tests
         if: steps.plan.outputs.run_build == 'true'
         run: scripts/build-mupdf.sh
-
-      # Booting takes 2 to 3 minutes. Start it here and wait for it after the build, which does not
-      # need a running simulator.
-      - name: Start iPhone simulator
-        if: steps.plan.outputs.run_build == 'true'
-        run: |
-          DEVICE_ID=$(xcrun simctl create 'Muse E2E' com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro com.apple.CoreSimulator.SimRuntime.iOS-26-5)
-          xcrun simctl boot "$DEVICE_ID"
-          echo "MAESTRO_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
 
       # The pinned MuPDF framework contains an arm64 simulator slice, not x86_64.
       - name: Select arm64 simulator architecture
@@ -179,18 +184,21 @@ jobs:
       # build that bypassed ccache visible instead of silently slow.
       - name: Report build time and ccache statistics
         if: steps.plan.outputs.run_build == 'true' && always()
+        env:
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
         run: |
           ccache --show-stats || true
           stats=$(ccache --print-stats 2>/dev/null || true)
-          stat() { printf '%s\n' "$stats" | awk -v k="$1" '$1 == k { v = $2 } END { print v + 0 }'; }
-          hits=$(( $(stat direct_cache_hit) + $(stat preprocessed_cache_hit) ))
-          misses=$(( $(stat cache_miss) ))
+          ccache_stat() { printf '%s\n' "$stats" | awk -v k="$1" '$1 == k { v = $2 } END { print v + 0 }'; }
+          hits=$(( $(ccache_stat direct_cache_hit) + $(ccache_stat preprocessed_cache_hit) ))
+          misses=$(( $(ccache_stat cache_miss) ))
           {
             echo "### iOS build"
-            echo "- Build step: ${BUILD_SECONDS:-unknown} s"
+            echo "- Build step, first attempt (the simulator boots during it): ${BUILD_SECONDS:-unknown} s"
             echo "- ccache: $hits hits, $misses misses"
           } >> "$GITHUB_STEP_SUMMARY"
-          if [ $((hits + misses)) -eq 0 ]; then
+          # A failed build compiled little, so only a successful one proves ccache is not engaged.
+          if [ "$BUILD_OUTCOME" = "success" ] && [ $((hits + misses)) -eq 0 ]; then
             echo "::warning::ccache served no compile calls. It is not engaged, so every C++ file was compiled from source."
           fi
 

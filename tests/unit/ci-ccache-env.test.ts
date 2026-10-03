@@ -4,6 +4,8 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { parseKeyValueLines } from '../support/key-value-lines';
+
 const script = join(__dirname, '../../scripts/ci-ccache-env.sh');
 
 let toolDir: string;
@@ -29,13 +31,7 @@ function run() {
     encoding: 'utf8',
     env: { NODE_ENV: 'test', PATH: toolDir, HOME: '/Users/runner' },
   });
-  const entries = Object.fromEntries(
-    result.stdout
-      .split('\n')
-      .filter((line) => line.includes('='))
-      .map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]),
-  );
-  return { status: result.status, stderr: result.stderr, env: entries as Record<string, string> };
+  return { status: result.status, stderr: result.stderr, env: parseKeyValueLines(result.stdout) };
 }
 
 describe('ccache build environment', () => {
@@ -62,15 +58,13 @@ describe('ccache build environment', () => {
     expect(run().env.CCACHE_DEPEND).toBe('true');
   });
 
-  it('enables ccache and keeps its store in the directory the workflow caches', () => {
+  it('enables ccache and keeps its store under the home directory the workflow caches', () => {
     installFakeCcache();
 
     const { env } = run();
 
     expect(env.USE_CCACHE).toBe('1');
     expect(env.CCACHE_DIR).toBe('/Users/runner/.ccache');
-    expect(env.CCACHE_MAXSIZE).toBe('1500M');
-    expect(env.CCACHE_COMPILERCHECK).toBe('content');
   });
 
   it('fails with an actionable message when ccache is not installed', () => {

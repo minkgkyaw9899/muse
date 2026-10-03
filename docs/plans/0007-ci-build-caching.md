@@ -40,6 +40,7 @@ Repeat `iOS Maestro E2E` runs skip C++ compilation of unchanged native code, doc
 
 - Unit seam: `scripts/ci-plan-build.sh`. Input: environment `EVENT`, `CLEAN_INPUT`, changed paths on standard input. Output: `run_build=` and `fresh=` lines. Behavior: docs-only skip for PRs and pushes, native-input and size triggers for `fresh`, safe default (build) when the change list is unknown or empty, `workflow_dispatch` always builds.
 - Unit seam: `scripts/ci-ccache-env.sh`. Output: `KEY=VALUE` lines for `GITHUB_ENV`. Behavior: resolves the ccache binary found on `PATH` into `CCACHE_BINARY`, keeps the existing cache settings, fails with a clear message when ccache is missing.
+- Integration seam: none beyond these two scripts. The workflow YAML is parsed for syntax and each `run` block is checked with `bash -n`.
 - Not unit-testable (verified by local experiment and, later, real runs): job step ordering, `actions/cache` keys and scopes, the recovery path, timing outcomes.
 
 Both scripts are exercised through `bun run test:unit` by spawning them with fixed inputs and asserting on their output only.
@@ -53,6 +54,9 @@ Both scripts are exercised through `bun run test:unit` by spawning them with fix
 - [ ] Manual reset by `clean_cache` input or `NATIVE_CACHE_VERSION` (implemented in #16).
 - [ ] Docs-only PRs and pushes skip the macOS build and pass (PR logic implemented, push logic new, both unit-tested).
 - [ ] Before/after timings from real GitHub runs recorded on the ticket (cannot be completed without a pushed branch).
+
+- [ ] Accessibility: not applicable (no UI).
+- [ ] Failure behavior: an unknown change list builds; a missing ccache fails the configure step with a clear message; the report step never fails the job.
 
 ## Vertical slices
 

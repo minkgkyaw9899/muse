@@ -56,13 +56,13 @@ Local measurement for the `RNReanimated` scheme (Release, arm64 simulator, a fre
 
 | Xcode | Mode | Cold | Warm | Warm hits |
 | --- | --- | ---: | ---: | ---: |
-| 26.6 (17F113, the version on `macos-26` runners) | direct | 53 s | 6 s | 187 of 187 |
+| 26.6 (17F113, the Xcode this document records for CI) | direct | 53 s | 6 s | 187 of 187 |
 | 26.6 | depend (committed) | 67 s | 5 s | 187 of 187 |
 | 27.0 | direct | 153 s | 13 s | 187 of 187 |
 
 The warm run needs the same DerivedData path as the cold one because the path is part of each compile command; a different path gave 0 hits. CI uses one checkout path, so it should match. These numbers come from one Mac, not from a GitHub runner (whose cold compile was about 500 s for the same pod), so the speed-up on CI is unproven until a run completes.
 
-Alternatives not taken: Xcode's built-in compilation caching (`COMPILATION_CACHE_ENABLE_CACHING`) measured 100% hits in a separate probe and needs no extra tool, but it conflicts with React Native's ccache wrapper, has not been run on a runner, and its cache size for the whole app is unknown. Revisit it if the ccache hit rate on CI disappoints.
+Alternative not taken: Xcode's built-in compilation caching (`COMPILATION_CACHE_ENABLE_CACHING`). A research probe reported 100% hits on two pods and no extra tool is needed, but it conflicts with React Native's ccache wrapper, I did not reproduce it, it has not run on a runner, and its cache size for the whole app is unknown. Revisit it if the ccache hit rate on CI disappoints.
 
 The `Report build time and ccache statistics` step writes the build duration and ccache hits and misses to the job summary and emits a warning when ccache served nothing, so a regression is visible without reading logs.
 
@@ -81,7 +81,9 @@ The `Report build time and ccache statistics` step writes the build duration and
 
 The simulator is created and booted before the build and awaited after it, so the 2 to 3 minute boot overlaps the compile. On a three-core runner this may slow the compile slightly; compare the job summary with earlier runs.
 
-Not yet verified on GitHub: the recovery path, `clean_cache`, the push-event skip, ccache hits on a runner, and the simulator overlap. Record real before and after timings on #14 from the first runs. The MuPDF build (about 185 s per run) is deliberately not cached: ADR 0001 limits where MuPDF binaries may exist, and that needs an explicit decision.
+Behavior changes from #16: an empty or unknown change list now builds (it used to skip), `fresh` is also computed for pushes, a docs-only push skips the build, and runs on `develop` are no longer cancelled by a newer push, so a skipped docs-only run cannot stop a native build before it saves its cache.
+
+Not yet verified on GitHub (none of this has run): the docs-only skip for pull requests and pushes, the Bun cache retry, the recovery path, `clean_cache`, ccache hits on a runner, and the simulator overlap. The simulator now boots during the MuPDF and app builds, so the build step's time includes that contention and is not like for like with older runs. Known gap carried over from #16: when the recovery step deletes a cache whose key was an exact hit, `actions/cache` skips its post-save, so the clean rebuild may not repopulate it. Record real before and after timings on #14 from the first runs. The MuPDF build (about 185 s per run) is deliberately not cached: ADR 0001 limits where MuPDF binaries may exist, and that needs an explicit decision.
 
 ## Native inspection benchmark
 
