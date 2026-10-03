@@ -27,7 +27,7 @@ The issue and parent spec already agree on the public Library interface and rend
 - [x] Loading, failed loading, empty, populated and no-match states are distinguishable.
 - [x] Row controls have labeled selected state, 44-point targets, and wrap for Dynamic Type.
 - [x] Public-seam behavior tests, lint, typecheck and validation pass.
-- [ ] Relevant installed-app Maestro flow passes.
+- [x] Relevant installed-app Maestro flow passes.
 
 ## Vertical slices
 
@@ -46,11 +46,23 @@ Favorite updates are a parameterized metadata write with no PDF reads or renderi
 - [x] Targeted tests observed red before their implementation
 - [x] `bun run lint` and `bun run typecheck`
 - [x] `bun run validate` (unit, integration, UI, Biome)
-- [ ] Relevant Maestro flow on installed simulator app
-- [ ] Standards and Spec reviews; findings addressed
+- [x] Relevant Maestro flow on installed simulator app
+- [x] Standards and Spec reviews; findings addressed
 - [x] Architecture, requirements and testing notes updated
 
-Validation snapshot: Node 22.23.2; `bun run validate` passed 51 unit, 93 integration and 25 UI tests. Real SQLite tests cover migration rollback/retry and a failed write retaining committed state. A slow-write test exposed out-of-order favorite changes; favorite and import metadata writes now use one queue. Rendered tests observed the stale-read and loading-retry regressions before their fixes. Simulator acceptance and final reviews are still pending.
+Validation snapshot: Node 22.23.2; `bun run validate` passed 51 unit, 94 integration and 28 UI tests. Real SQLite tests cover migration rollback/retry, reopening after a failed connection attempt, and failed writes retaining committed state. A slow-write test exposed out-of-order favorite changes; favorite and import metadata writes now use one queue. Rendered tests observed the stale-read and loading-retry regressions before their fixes. Review exposed a second race: local results could invalidate a newer snapshot containing another publication’s change, including a loading retry. Fresh reads after local outcomes and preservation of returned imports fix it; save/import overtaking and retry regressions pass. A final red/green storage test verifies that a rejected connection attempt is cleared before retry.
+
+### Standards review
+
+The final review of `c5e889d...6162a21` and follow-up of the connection recovery correction found zero actionable findings. Module boundaries, parameterized transactions, semantic tokens, accessible controls, bounded rows and cleanup conform to the documented standards. No actionable baseline smell remains.
+
+### Spec review
+
+The final review and recovery follow-up found zero actionable findings. All five #9 acceptance criteria are implemented, with no scope creep. The initial refresh race findings were fixed and verified by regressions before repeat review.
+
+### Installed-app acceptance
+
+Favorites and smoke passed on the final production source at `a1fa1a4` (2/2 flows, 1m 42s), including Files import, relaunch persistence, mixed-case title search, unfavorite and cross-tab state. The iOS 26.5 arm64 simulator uses the existing issue-7 Release native binary with unchanged native inputs, rebundled from this branch using Expo `export:embed`, compiled with the matching Hermes compiler, ad-hoc signed and verified before installation. No generated native project files were edited. Local diagnostics remain ignored under `.cache/favorites-e2e/maestro-final-recovery/`.
 
 ## Tracker
 

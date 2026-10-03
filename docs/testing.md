@@ -16,7 +16,7 @@ Jest uses the SDK 57 `jest-expo` preset. React Native Testing Library 14 uses as
 
 ## Favorites behavior
 
-`tests/integration/publication-library.test.ts` covers favorite persistence, unfavorite, missing publications, safe failed writes and durable change subscriptions through the Library interface. `publication-favorites-storage.test.ts` runs the production SQLite repository against the host Node SQLite engine (Node 22.13+ required by Expo SDK 57) for fresh and schema-1 databases, rollback/retry, duplicate retention and failed metadata writes. No PDF pages are materialized.
+`tests/integration/publication-library.test.ts` covers favorite persistence, unfavorite, missing publications, safe failed writes and durable change subscriptions through the Library interface. `publication-favorites-storage.test.ts` runs the production SQLite repository against the host Node SQLite engine (Node 22.13+ required by Expo SDK 57) for fresh and schema-1 databases, rollback/retry, reopening after a failed connection attempt, duplicate retention and failed metadata writes. No PDF pages are materialized.
 
 `tests/ui/publication-favorites.test.tsx` covers accessible actions shared across Library and Favorites, displayed-title matching, no-match/loading/error states, save failure recovery and suppression of stale collection reads. `.maestro/favorites.yml` exercises the real picker/import, favorite/relaunch, Favorites search, unfavorite and cross-tab consistency on an installed app.
 
