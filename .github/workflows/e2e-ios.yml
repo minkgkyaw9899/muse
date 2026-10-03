@@ -13,13 +13,19 @@ on:
         description: Ignore every native cache and rebuild from scratch
         type: boolean
         default: false
+      profile_build:
+        description: Record xcodebuild's build timing summary in the job summary
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
   group: ios-maestro-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Only a newer push to the same pull request supersedes a run. A run on develop must finish, or its
+  # cache is never saved (a docs-only push would otherwise cancel an in-flight native build).
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   # Bump the repository variable NATIVE_CACHE_VERSION to invalidate every native cache
@@ -44,34 +50,26 @@ jobs:
           fetch-depth: 0
 
       # Decide how much work this run needs.
-      #   run_build=false  the pull request only touches docs, so skip the macOS build.
+      #   run_build=false  the pull request or push only touches docs, so skip the macOS build.
       #   fresh=true       native inputs changed a lot (lockfile, app config, local modules or
       #                    plugins) or the diff is large, so do not restore a stale fallback cache.
       - name: Plan build and cache use
         id: plan
         env:
           EVENT: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          # A pull request compares with its base; a push compares with the previous tip of the branch.
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           CLEAN_INPUT: ${{ inputs.clean_cache }}
         run: |
           set -euo pipefail
-          run_build=true
-          fresh=false
-          if [ "$EVENT" = "pull_request" ]; then
+          changed=""
+          # An unknown base (new branch, rewritten history, manual run) leaves the list empty, and the
+          # planning script then builds.
+          if git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
             changed=$(git diff --name-only "$BASE_SHA"...HEAD)
-            total=$(printf '%s\n' "$changed" | grep -c . || true)
-            if [ -z "$(printf '%s\n' "$changed" | grep -vE '^(docs/|.*\.md$)' || true)" ]; then
-              run_build=false
-            fi
-            if printf '%s\n' "$changed" | grep -Eq '^(bun\.lock|app\.json|eas\.json|modules/|plugins/)' || [ "$total" -gt 150 ]; then
-              fresh=true
-            fi
-            echo "Changed files: $total"
           fi
-          if [ "$CLEAN_INPUT" = "true" ]; then fresh=true; fi
-          echo "run_build=$run_build" >> "$GITHUB_OUTPUT"
-          echo "fresh=$fresh" >> "$GITHUB_OUTPUT"
-          echo "run_build=$run_build fresh=$fresh"
+          echo "Changed files: $(printf '%s\n' "$changed" | grep -c . || true)"
+          printf '%s\n' "$changed" | scripts/ci-plan-build.sh | tee -a "$GITHUB_OUTPUT"
 
       - name: Set up Bun
         if: steps.plan.outputs.run_build == 'true'
@@ -125,16 +123,15 @@ jobs:
           key: pods-${{ runner.os }}-${{ env.CACHE_VERSION }}-${{ hashFiles('bun.lock', 'app.json', 'modules/**') }}
           restore-keys: ${{ steps.plan.outputs.fresh == 'true' && '' || format('pods-{0}-{1}-', runner.os, env.CACHE_VERSION) }}
 
+      # React Native's wrapper needs CCACHE_BINARY in the environment (Xcode does not pass build
+      # settings to compile tasks) and ccache must accept Xcode's -ivfsoverlay; see the script.
       - name: Configure ccache
         if: steps.plan.outputs.run_build == 'true'
         run: |
-          {
-            echo "USE_CCACHE=1"
-            echo "CCACHE_DIR=$HOME/.ccache"
-            echo "CCACHE_MAXSIZE=1500M"
-            echo "CCACHE_COMPILERCHECK=content"
-            echo "CCACHE_SLOPPINESS=clang_index_store,file_stat_matches,include_file_mtime,include_file_ctime,pch_defines,modules,system_headers,time_macros"
-          } >> "$GITHUB_ENV"
+          env_lines=$(scripts/ci-ccache-env.sh)
+          printf '%s\n' "$env_lines" >> "$GITHUB_ENV"
+          # GITHUB_ENV only reaches later steps, and --zero-stats must see CCACHE_DIR now.
+          while IFS= read -r line; do export "$line"; done <<< "$env_lines"
           ccache --zero-stats
 
       - name: Test native publication sources
@@ -145,6 +142,8 @@ jobs:
         if: steps.plan.outputs.run_build == 'true'
         run: scripts/build-mupdf.sh
 
+      # Boot after the MuPDF build. Booting during the MuPDF and native tests made them slower by more
+      # than the boot saved (measured on two runs of PR 23: 517 s and 522 s against 359 s).
       - name: Boot iPhone simulator
         if: steps.plan.outputs.run_build == 'true'
         run: |
@@ -160,11 +159,24 @@ jobs:
           printf 'ARCHS = arm64\n' > "$RUNNER_TEMP/muse-sim-arm64.xcconfig"
           echo "XCODE_XCCONFIG_FILE=$RUNNER_TEMP/muse-sim-arm64.xcconfig" >> "$GITHUB_ENV"
 
+      # Opt-in (manual runs only). Expo drops xcodebuild's timing summary, so a shim named xcodebuild
+      # goes first on PATH and records it; see scripts/xcodebuild-profile.sh.
+      - name: Prepare build profiling
+        if: steps.plan.outputs.run_build == 'true' && inputs.profile_build
+        run: |
+          mkdir -p "$RUNNER_TEMP/profile-bin"
+          ln -sf "$PWD/scripts/xcodebuild-profile.sh" "$RUNNER_TEMP/profile-bin/xcodebuild"
+          echo "$RUNNER_TEMP/profile-bin" >> "$GITHUB_PATH"
+          echo "XCODEBUILD_PROFILE_LOG=$RUNNER_TEMP/xcodebuild-profile.log" >> "$GITHUB_ENV"
+
       - name: Build standalone iOS simulator app
         if: steps.plan.outputs.run_build == 'true'
         id: build
         continue-on-error: true
-        run: scripts/build-ios-e2e.sh /tmp/muse-e2e-build
+        run: |
+          start=$(date +%s)
+          trap 'echo "BUILD_SECONDS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"' EXIT
+          scripts/build-ios-e2e.sh /tmp/muse-e2e-build
 
       # Recovery: a failing build after a cache restore may be caused by a stale cache.
       # Delete this cache generation, wipe local build state, and build once from scratch.
@@ -183,9 +195,35 @@ jobs:
           done
           scripts/build-ios-e2e.sh /tmp/muse-e2e-build
 
-      - name: ccache statistics
+      # Record where the time went so before and after runs can be compared on the ticket, and make a
+      # build that bypassed ccache visible instead of silently slow.
+      - name: Report build time and ccache statistics
         if: steps.plan.outputs.run_build == 'true' && always()
-        run: ccache --show-stats || true
+        env:
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+        run: |
+          ccache --show-stats || true
+          stats=$(ccache --print-stats 2>/dev/null || true)
+          ccache_stat() { printf '%s\n' "$stats" | awk -v k="$1" '$1 == k { v = $2 } END { print v + 0 }'; }
+          hits=$(( $(ccache_stat direct_cache_hit) + $(ccache_stat preprocessed_cache_hit) ))
+          misses=$(( $(ccache_stat cache_miss) ))
+          {
+            echo "### iOS build"
+            echo "- Build step, first attempt: ${BUILD_SECONDS:-unknown} s"
+            echo "- ccache: $hits hits, $misses misses"
+          } >> "$GITHUB_STEP_SUMMARY"
+          # A failed build compiled little, so only a successful one proves ccache is not engaged.
+          if [ "$BUILD_OUTCOME" = "success" ] && [ $((hits + misses)) -eq 0 ]; then
+            echo "::warning::ccache served no compile calls. It is not engaged, so every C++ file was compiled from source."
+          fi
+          if [ -s "${XCODEBUILD_PROFILE_LOG:-}" ]; then
+            {
+              echo "### xcodebuild timing summary"
+              echo '```'
+              awk '/^Build Timing Summary/ { show = 1 } show && NF' "$XCODEBUILD_PROFILE_LOG"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Install app and seed Files fixture
         if: steps.plan.outputs.run_build == 'true'
