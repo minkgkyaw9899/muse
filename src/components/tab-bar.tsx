@@ -52,7 +52,7 @@ function TabIcon({ item, active }: { item: TabBarItem; active: boolean }) {
       <SymbolView
         name={active ? item.icon.active : item.icon.inactive}
         weight={active ? 'bold' : 'regular'}
-        tintColor={active ? tokens.accent : tokens.mutedText}
+        tintColor={active ? tokens.accentText : tokens.mutedText}
         size={28}
       />
     </Animated.View>
@@ -88,7 +88,9 @@ export function TabBarView({
             className="min-h-14 flex-1 items-center justify-center gap-1 py-1"
           >
             <TabIcon item={item} active={active} />
-            <Text className={`text-sm ${active ? 'font-semibold text-text' : 'text-muted-text'}`}>
+            <Text
+              className={`text-sm ${active ? 'font-semibold text-accent-text' : 'text-muted-text'}`}
+            >
               {item.label}
             </Text>
           </Pressable>

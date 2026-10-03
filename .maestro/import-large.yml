@@ -1,0 +1,44 @@
+appId: com.minkgkyaw9899.muse
+tags:
+  - large
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Your library is empty'
+- tapOn: 'Import PDFs'
+# The Files provider is slow to present while the 143 MB fixture is seeded.
+- extendedWaitUntil:
+    visible: 'Browse'
+    timeout: 60000
+- tapOn: 'Browse'
+- runFlow:
+    when:
+      notVisible:
+        id: 'Muse Import Fixture, pdf'
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: 'DOC.sidebar.item.On My iPhone'
+          timeout: 60000
+      - tapOn:
+          id: 'DOC.sidebar.item.On My iPhone'
+          point: '90%,50%'
+          retryTapIfNoChange: true
+- runFlow:
+    file: helpers/select-file.yml
+    env:
+      FILE_ID: 'Muse Import Fixture, pdf'
+- runFlow:
+    file: helpers/select-file.yml
+    env:
+      FILE_ID: 'Muse Large Fixture, pdf'
+- runFlow: helpers/open-selection.yml
+# The 143 MB scan streams through the native copy path. Rows appear as each file completes.
+- extendedWaitUntil:
+    visible: 'Muse Large Fixture, 100 pages, imported.*'
+    timeout: 180000
+- assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
+- stopApp
+- launchApp
+- assertVisible: 'Muse Large Fixture, 100 pages, imported.*'
+- assertVisible: 'Muse Import Fixture, 2 pages, imported.*'

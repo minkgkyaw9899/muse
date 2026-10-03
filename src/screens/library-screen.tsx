@@ -2,22 +2,29 @@ import { useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
-  FlatList,
+  Keyboard,
   Platform,
   Pressable,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
-import { createExpoPublicationLibrary } from '@/features/library/expo-publication-adapters';
-import type { Publication, PublicationLibrary } from '@/features/library/publication-library';
+import { getAppLibrary } from '@/features/library/app-library';
+import type {
+  FileImportResult,
+  Publication,
+  PublicationLibrary,
+} from '@/features/library/publication-library';
+import { detectTabBarKind } from '@/theme/glass-capability';
+import { useAppTheme } from '@/theme/theme-provider';
 import { EmptyState } from '@/ui/empty-state';
+import { HeaderAction } from '@/ui/header-action';
+import { ScrollList } from '@/ui/scroll-list';
+import { useToast } from '@/ui/toast';
+import { summarizeImport } from './import-result-message';
 
-let appLibrary: PublicationLibrary | null = null;
-function defaultLibrary(): PublicationLibrary {
-  appLibrary ??= createExpoPublicationLibrary();
-  return appLibrary;
-}
+const headerSearchAvailable = detectTabBarKind() === 'fallback';
 
 function formatImportDate(isoDate: string): string {
   return new Intl.DateTimeFormat(undefined, {
@@ -45,11 +52,24 @@ function PublicationRow({ publication }: { publication: Publication }) {
 }
 
 /** The route injects the production Library; tests can supply the same public interface. */
-export function LibraryScreen({ library: suppliedLibrary }: { library?: PublicationLibrary }) {
+export function LibraryScreen({
+  library: suppliedLibrary,
+  searchQuery = '',
+  searchOnly = false,
+}: {
+  library?: PublicationLibrary;
+  searchQuery?: string;
+  searchOnly?: boolean;
+}) {
+  const { tokens } = useAppTheme();
+  const toast = useToast();
+  const [searching, setSearching] = useState(false);
+  const [localQuery, setLocalQuery] = useState('');
   const libraryRef = useRef<PublicationLibrary | null>(null);
-  libraryRef.current ??= suppliedLibrary ?? defaultLibrary();
+  libraryRef.current ??= suppliedLibrary ?? getAppLibrary();
   const library = libraryRef.current;
   const controller = useRef<AbortController | null>(null);
+  const mounted = useRef(true);
   const [publications, setPublications] = useState<Publication[]>([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
@@ -57,14 +77,15 @@ export function LibraryScreen({ library: suppliedLibrary }: { library?: Publicat
   const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
-    if (Platform.OS === 'ios') {
-      const announcement = message ?? (importing ? 'Importing PDF.' : null);
-      if (announcement) AccessibilityInfo.announceForAccessibility(announcement);
-    }
-  }, [message, importing]);
+    if (Platform.OS === 'ios' && message) AccessibilityInfo.announceForAccessibility(message);
+  }, [message]);
 
   useEffect(() => {
     let active = true;
+    mounted.current = true;
+    setLoading(true);
+    setLoadFailed(false);
+    setMessage(null);
     library
       .list()
       .then((listed) => {
@@ -81,85 +102,165 @@ export function LibraryScreen({ library: suppliedLibrary }: { library?: Publicat
       });
     return () => {
       active = false;
+      mounted.current = false;
       controller.current?.abort();
     };
   }, [library]);
 
+  function addPublications(added: Publication[]) {
+    setPublications((current) => [
+      ...new Map(
+        [...added, ...current].map((publication) => [publication.id, publication]),
+      ).values(),
+    ]);
+  }
+
+  function importedPublication(file: FileImportResult): Publication[] {
+    return file.result.status === 'imported' ? [file.result.publication] : [];
+  }
+
   async function onImport() {
-    if (loading || loadFailed || importing) return;
+    if (loading || loadFailed || controller.current) return;
     const abort = new AbortController();
     controller.current = abort;
     setImporting(true);
-    setMessage(null);
     try {
-      const result = await library.importOne({ signal: abort.signal });
-      if (abort.signal.aborted) return;
-      if (result.status === 'error') {
-        setMessage(result.error.message);
-      } else if (result.status === 'duplicate') {
-        setMessage('Already in Library. Your existing publication is unchanged.');
-      } else if (result.status === 'imported') {
-        setPublications((current) => [result.publication, ...current]);
-        setMessage(`${result.publication.title} was imported.`);
+      const batch = await library.importMany({
+        signal: abort.signal,
+        // Rows appear as each file completes; the outcome itself is reported once, in a toast.
+        onProgress: (event) => {
+          if (!mounted.current || controller.current !== abort) return;
+          if (event.file) addPublications(importedPublication(event.file));
+        },
+      });
+      if (!mounted.current || controller.current !== abort) return;
+      if (batch.status === 'error') {
+        toast.show({ kind: 'error', message: batch.error.message });
+      } else {
+        addPublications(batch.results.flatMap(importedPublication));
+        const summary = summarizeImport(batch.results);
+        if (summary) toast.show(summary);
       }
     } catch {
-      if (!abort.signal.aborted) setMessage('Muse could not import this PDF. Please try again.');
+      if (mounted.current)
+        toast.show({
+          kind: 'error',
+          message:
+            'Muse could not finish this import. Completed publications remain in Library. Please try again.',
+        });
     } finally {
-      if (!abort.signal.aborted) setImporting(false);
+      if (mounted.current) setImporting(false);
       if (controller.current === abort) controller.current = null;
     }
   }
 
+  const query = (searchOnly ? searchQuery : localQuery).trim().toLocaleLowerCase();
+  const visiblePublications = publications.filter((publication) =>
+    publication.title.toLocaleLowerCase().includes(query),
+  );
+  // The list must be the screen's first child: iOS finds the tab's scroll view there to minimize the bar.
   return (
-    <View className="flex-1 bg-canvas">
-      <FlatList
-        data={publications}
-        keyExtractor={(publication) => publication.id}
-        contentInsetAdjustmentBehavior="automatic"
-        contentContainerClassName="grow px-5 pb-8"
-        ListHeaderComponent={
-          <View className="gap-3 pt-4 pb-3">
-            <Text accessibilityRole="header" className="font-bold text-4xl text-text">
-              Library
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Import PDF"
-              accessibilityState={{ disabled: loading || loadFailed || importing }}
-              disabled={loading || loadFailed || importing}
-              onPress={onImport}
-              className="min-h-11 self-start justify-center rounded-xl bg-surface px-5 active:opacity-60"
-            >
-              <Text className="font-semibold text-base text-text">Import PDF</Text>
-            </Pressable>
-            {importing ? (
-              <View className="flex-row items-center gap-2" accessibilityLiveRegion="polite">
-                <ActivityIndicator colorClassName="accent-accent" />
-                <Text className="text-base text-muted-text">Importing PDF…</Text>
-              </View>
-            ) : null}
-            {message ? (
-              <Text accessibilityLiveRegion="polite" className="text-base text-muted-text">
-                {message}
+    <ScrollList
+      className="flex-1 bg-canvas"
+      data={visiblePublications}
+      keyExtractor={(publication) => publication.id}
+      estimatedItemSize={80}
+      recycleItems={false}
+      contentInsetAdjustmentBehavior="automatic"
+      contentContainerClassName="grow px-5 pb-8"
+      ListHeaderComponent={
+        <View className="gap-3 pt-4 pb-3">
+          {!searchOnly ? (
+            <View className="flex-row flex-wrap items-center justify-between gap-3">
+              <Text
+                accessibilityRole="header"
+                className="min-w-36 flex-1 font-bold text-4xl text-text"
+              >
+                Library
               </Text>
-            ) : null}
-          </View>
-        }
-        renderItem={({ item }) => <PublicationRow publication={item} />}
-        ListEmptyComponent={
-          loading ? (
-            <ActivityIndicator colorClassName="accent-accent" />
-          ) : loadFailed ? null : (
-            <View className="min-h-80">
-              <EmptyState
-                icon={{ ios: 'books.vertical', android: 'library_books', web: 'library_books' }}
-                title="Your library is empty"
-                description="Publications you import will appear here."
-              />
+              <View className="max-w-full flex-row flex-wrap items-center gap-2">
+                {headerSearchAvailable ? (
+                  <HeaderAction
+                    label="Search Library"
+                    icon={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
+                    onPress={() => setSearching(true)}
+                  />
+                ) : null}
+                <HeaderAction
+                  label="Import PDFs"
+                  hint="Add PDFs to your Library"
+                  icon={{ ios: 'plus', android: 'add', web: 'add' }}
+                  disabled={loading || loadFailed || importing}
+                  onPress={() => {
+                    void onImport();
+                  }}
+                />
+                <HeaderAction
+                  label="Edit Library"
+                  hint="Library editing is coming later"
+                  text="Edit"
+                  disabled
+                />
+              </View>
             </View>
-          )
-        }
-      />
-    </View>
+          ) : null}
+          {searching && !searchOnly ? (
+            <View className="flex-row flex-wrap items-center gap-2">
+              <TextInput
+                accessibilityLabel="Search Library titles"
+                placeholder="Search Library"
+                placeholderTextColor={tokens.mutedText}
+                autoFocus
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={localQuery}
+                onChangeText={setLocalQuery}
+                returnKeyType="search"
+                className="min-h-14 min-w-36 flex-1 rounded-full border border-separator bg-surface px-4 text-base text-text"
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Cancel search"
+                onPress={() => {
+                  setSearching(false);
+                  setLocalQuery('');
+                  Keyboard.dismiss();
+                }}
+                className="min-h-11 justify-center px-2 active:opacity-60"
+              >
+                <Text className="text-accent-text text-base">Cancel</Text>
+              </Pressable>
+            </View>
+          ) : null}
+          {message ? (
+            <Text accessibilityLiveRegion="polite" className="text-base text-muted-text">
+              {message}
+            </Text>
+          ) : null}
+        </View>
+      }
+      renderItem={({ item }) => <PublicationRow publication={item} />}
+      ListEmptyComponent={
+        loading ? (
+          <ActivityIndicator accessibilityLabel="Loading Library" colorClassName="accent-accent" />
+        ) : null
+      }
+      keyboardShouldPersistTaps="handled"
+      ListFooterComponent={
+        !loading && !loadFailed && query && visiblePublications.length === 0 ? (
+          <Text accessibilityLiveRegion="polite" className="py-6 text-base text-muted-text">
+            No matching publications
+          </Text>
+        ) : !loading && !loadFailed && publications.length === 0 ? (
+          <View className="min-h-80">
+            <EmptyState
+              icon={{ ios: 'books.vertical', android: 'library_books', web: 'library_books' }}
+              title="Your library is empty"
+              description="Publications you import will appear here."
+            />
+          </View>
+        ) : null
+      }
+    />
   );
 }

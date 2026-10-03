@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@expo/ui": "~57.0.20",
+    "@legendapp/list": "^3.6.0",
     "@rn-primitives/portal": "^1.5.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

@@ -1,0 +1,13 @@
+appId: com.minkgkyaw9899.muse
+---
+# Keep picker handoff separate from import results so a dropped tap cannot become a result timeout.
+- repeat:
+    times: 3
+    while:
+      visible: 'Open'
+    commands:
+      - tapOn:
+          text: 'Open'
+          retryTapIfNoChange: true
+      - waitForAnimationToEnd
+- assertNotVisible: 'Open'

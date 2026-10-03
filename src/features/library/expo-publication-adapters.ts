@@ -1,8 +1,14 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { Directory, File, FileMode, Paths } from 'expo-file-system';
 import * as SQLite from 'expo-sqlite';
-
+import { Platform } from 'react-native';
 import { createMupdfDocumentRenderer } from '@/features/reader/mupdf-document-renderer';
+import { loadNativePublicationImport } from '../../../modules/publication-import/src/PublicationImportModule';
+import {
+  copyNativePublicationSource,
+  createNativePublicationPicker,
+  NATIVE_PUBLICATION_SOURCE_PREFIX,
+} from './native-publication-import';
 import {
   createPublicationLibrary,
   LibraryAdapterError,
@@ -52,32 +58,41 @@ function pickerCacheFile(uri: string): File | null {
 }
 
 export function createExpoPublicationPicker(): PublicationLibraryDependencies['picker'] {
+  if (Platform.OS === 'ios') {
+    const native = loadNativePublicationImport();
+    if (native) return createNativePublicationPicker(native);
+    const unavailable = async (): Promise<never> => {
+      throw new LibraryAdapterError('unavailable');
+    };
+    return { pickOne: unavailable, pickMany: unavailable };
+  }
+  async function pick(multiple: boolean): Promise<PickedPublication[]> {
+    let result: DocumentPicker.DocumentPickerResult;
+    try {
+      result = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        multiple,
+        copyToCacheDirectory: false,
+        base64: false,
+      });
+    } catch {
+      throw new LibraryAdapterError('permissionDenied');
+    }
+    if (result.canceled) return [];
+    return result.assets.map((asset) => ({
+      uri: asset.uri,
+      name: asset.name,
+      mimeType: asset.mimeType,
+      size: asset.size,
+      async dispose() {
+        const copied = pickerCacheFile(asset.uri);
+        if (copied?.exists) copied.delete();
+      },
+    }));
+  }
   return {
-    async pickOne(): Promise<PickedPublication | null> {
-      let result: DocumentPicker.DocumentPickerResult;
-      try {
-        result = await DocumentPicker.getDocumentAsync({
-          type: 'application/pdf',
-          multiple: false,
-          copyToCacheDirectory: true,
-        });
-      } catch {
-        throw new LibraryAdapterError('permissionDenied');
-      }
-      if (result.canceled) return null;
-      const asset = result.assets[0];
-      if (!asset) return null;
-      return {
-        uri: asset.uri,
-        name: asset.name,
-        mimeType: asset.mimeType,
-        size: asset.size,
-        async dispose() {
-          const copied = pickerCacheFile(asset.uri);
-          if (copied?.exists) copied.delete();
-        },
-      };
-    },
+    pickOne: async () => (await pick(false))[0] ?? null,
+    pickMany: () => pick(true),
   };
 }
 
@@ -86,6 +101,11 @@ export function createExpoPublicationFileStore(): PublicationLibraryDependencies
     async stage(source, operationId, signal) {
       if (!/^[a-zA-Z0-9_-]+$/.test(operationId)) throw new LibraryAdapterError('storage');
       throwIfCancelled(signal);
+      if (source.uri.startsWith(NATIVE_PUBLICATION_SOURCE_PREFIX)) {
+        const native = loadNativePublicationImport();
+        if (!native) throw new LibraryAdapterError('unavailable');
+        return copyNativePublicationSource(native, source, operationId, signal);
+      }
       const relativePath = `${STAGING}/${operationId}.pdf`;
       const staged = ownedFile(relativePath);
       const input = new File(source.uri);
