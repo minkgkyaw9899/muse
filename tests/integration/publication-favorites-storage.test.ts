@@ -47,8 +47,12 @@ function sqliteConnection(database: NodeDatabase): SQLitePublicationDatabase {
   return connection;
 }
 
-function libraryFor(database: NodeDatabase, connection = sqliteConnection(database)) {
-  const repository = createSQLitePublicationRepository(async () => connection);
+function libraryFor(
+  database: NodeDatabase,
+  connection = sqliteConnection(database),
+  openDatabase = async () => connection,
+) {
+  const repository = createSQLitePublicationRepository(openDatabase);
   const dependencies: PublicationLibraryDependencies = {
     repository,
     picker: {
@@ -251,6 +255,32 @@ it('lets a reader retry a favorite after a transient Library initialization fail
     await expect(libraryFor(database).list()).resolves.toEqual([
       expect.objectContaining({ id: 'original', isFavorite: true }),
     ]);
+  } finally {
+    database.close();
+  }
+});
+
+it('reopens storage when a reader retries loading after a failed connection attempt', async () => {
+  const database = new DatabaseSync(':memory:');
+  try {
+    seedSchemaOne(database);
+    const connection = sqliteConnection(database);
+    let available = false;
+    const library = libraryFor(database, connection, async () => {
+      if (!available) {
+        available = true;
+        throw new Error('Storage temporarily unavailable');
+      }
+      return connection;
+    });
+    await expect(library.list()).rejects.toThrow('Storage temporarily unavailable');
+    await expect(library.list()).resolves.toEqual([
+      expect.objectContaining({ id: 'original', title: 'Field Notes', isFavorite: false }),
+    ]);
+    await expect(library.setFavorite('original', true)).resolves.toMatchObject({
+      status: 'saved',
+      publication: { id: 'original', isFavorite: true },
+    });
   } finally {
     database.close();
   }

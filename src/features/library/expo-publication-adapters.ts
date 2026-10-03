@@ -245,7 +245,10 @@ export function createSQLitePublicationRepository(
 ): PublicationLibraryDependencies['repository'] {
   let database: Promise<SQLitePublicationDatabase> | null = null;
   async function db() {
-    database ??= openDatabase();
+    database ??= openDatabase().catch((error: unknown) => {
+      database = null;
+      throw error;
+    });
     return database;
   }
   return {
