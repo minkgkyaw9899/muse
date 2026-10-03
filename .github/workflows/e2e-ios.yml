@@ -51,27 +51,19 @@ jobs:
         id: plan
         env:
           EVENT: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          # A pull request compares with its base; a push compares with the previous tip of the branch.
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           CLEAN_INPUT: ${{ inputs.clean_cache }}
         run: |
           set -euo pipefail
-          run_build=true
-          fresh=false
-          if [ "$EVENT" = "pull_request" ]; then
+          changed=""
+          # An unknown base (new branch, rewritten history, manual run) leaves the list empty, and the
+          # planning script then builds.
+          if [ "$EVENT" != "workflow_dispatch" ] && git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
             changed=$(git diff --name-only "$BASE_SHA"...HEAD)
-            total=$(printf '%s\n' "$changed" | grep -c . || true)
-            if [ -z "$(printf '%s\n' "$changed" | grep -vE '^(docs/|.*\.md$)' || true)" ]; then
-              run_build=false
-            fi
-            if printf '%s\n' "$changed" | grep -Eq '^(bun\.lock|app\.json|eas\.json|modules/|plugins/)' || [ "$total" -gt 150 ]; then
-              fresh=true
-            fi
-            echo "Changed files: $total"
           fi
-          if [ "$CLEAN_INPUT" = "true" ]; then fresh=true; fi
-          echo "run_build=$run_build" >> "$GITHUB_OUTPUT"
-          echo "fresh=$fresh" >> "$GITHUB_OUTPUT"
-          echo "run_build=$run_build fresh=$fresh"
+          echo "Changed files: $(printf '%s\n' "$changed" | grep -c . || true)"
+          printf '%s\n' "$changed" | scripts/ci-plan-build.sh | tee -a "$GITHUB_OUTPUT"
 
       - name: Set up Bun
         if: steps.plan.outputs.run_build == 'true'
@@ -125,16 +117,12 @@ jobs:
           key: pods-${{ runner.os }}-${{ env.CACHE_VERSION }}-${{ hashFiles('bun.lock', 'app.json', 'modules/**') }}
           restore-keys: ${{ steps.plan.outputs.fresh == 'true' && '' || format('pods-{0}-{1}-', runner.os, env.CACHE_VERSION) }}
 
+      # React Native's wrapper needs CCACHE_BINARY in the environment (Xcode does not pass build
+      # settings to compile tasks) and ccache must accept Xcode's -ivfsoverlay; see the script.
       - name: Configure ccache
         if: steps.plan.outputs.run_build == 'true'
         run: |
-          {
-            echo "USE_CCACHE=1"
-            echo "CCACHE_DIR=$HOME/.ccache"
-            echo "CCACHE_MAXSIZE=1500M"
-            echo "CCACHE_COMPILERCHECK=content"
-            echo "CCACHE_SLOPPINESS=clang_index_store,file_stat_matches,include_file_mtime,include_file_ctime,pch_defines,modules,system_headers,time_macros"
-          } >> "$GITHUB_ENV"
+          scripts/ci-ccache-env.sh >> "$GITHUB_ENV"
           ccache --zero-stats
 
       - name: Test native publication sources
@@ -145,12 +133,13 @@ jobs:
         if: steps.plan.outputs.run_build == 'true'
         run: scripts/build-mupdf.sh
 
-      - name: Boot iPhone simulator
+      # Booting takes 2 to 3 minutes. Start it here and wait for it after the build, which does not
+      # need a running simulator.
+      - name: Start iPhone simulator
         if: steps.plan.outputs.run_build == 'true'
         run: |
           DEVICE_ID=$(xcrun simctl create 'Muse E2E' com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro com.apple.CoreSimulator.SimRuntime.iOS-26-5)
           xcrun simctl boot "$DEVICE_ID"
-          xcrun simctl bootstatus "$DEVICE_ID" -b
           echo "MAESTRO_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
 
       # The pinned MuPDF framework contains an arm64 simulator slice, not x86_64.
@@ -164,7 +153,10 @@ jobs:
         if: steps.plan.outputs.run_build == 'true'
         id: build
         continue-on-error: true
-        run: scripts/build-ios-e2e.sh /tmp/muse-e2e-build
+        run: |
+          start=$(date +%s)
+          trap 'echo "BUILD_SECONDS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"' EXIT
+          scripts/build-ios-e2e.sh /tmp/muse-e2e-build
 
       # Recovery: a failing build after a cache restore may be caused by a stale cache.
       # Delete this cache generation, wipe local build state, and build once from scratch.
@@ -183,9 +175,29 @@ jobs:
           done
           scripts/build-ios-e2e.sh /tmp/muse-e2e-build
 
-      - name: ccache statistics
+      # Record where the time went so before and after runs can be compared on the ticket, and make a
+      # build that bypassed ccache visible instead of silently slow.
+      - name: Report build time and ccache statistics
         if: steps.plan.outputs.run_build == 'true' && always()
-        run: ccache --show-stats || true
+        run: |
+          ccache --show-stats || true
+          stats=$(ccache --print-stats 2>/dev/null || true)
+          stat() { printf '%s\n' "$stats" | awk -v k="$1" '$1 == k { v = $2 } END { print v + 0 }'; }
+          hits=$(( $(stat direct_cache_hit) + $(stat preprocessed_cache_hit) ))
+          misses=$(( $(stat cache_miss) ))
+          {
+            echo "### iOS build"
+            echo "- Build step: ${BUILD_SECONDS:-unknown} s"
+            echo "- ccache: $hits hits, $misses misses"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ $((hits + misses)) -eq 0 ]; then
+            echo "::warning::ccache served no compile calls. It is not engaged, so every C++ file was compiled from source."
+          fi
+
+      # The simulator started before the build; wait until it is ready to accept the app.
+      - name: Wait for iPhone simulator
+        if: steps.plan.outputs.run_build == 'true'
+        run: xcrun simctl bootstatus "$MAESTRO_DEVICE_ID" -b
 
       - name: Install app and seed Files fixture
         if: steps.plan.outputs.run_build == 'true'

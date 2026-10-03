@@ -37,19 +37,51 @@ On a dedicated booted arm64 simulator with MuPDF already built, run `scripts/ben
 
 ## CI caching and recovery
 
-The `CI` validate job caches Bun's package cache. The `iOS Maestro E2E` job caches Bun packages, CocoaPods downloads, and a `ccache` of C++ compilation (`USE_CCACHE=1`, which the generated Podfile honors). Cache keys hash only native inputs (`bun.lock`, `app.json`, `eas.json`, `modules/`, `plugins/`), so JavaScript-only changes reuse the exact cache and only re-run the JS bundle. `ccache` is content-addressed, so a partial restore never produces a wrong binary.
+The `CI` validate job caches Bun's package cache. The `iOS Maestro E2E` job caches Bun packages, CocoaPods downloads, and a `ccache` of C++ compilation. Cache keys hash only native inputs (`bun.lock`, `app.json`, `eas.json`, `modules/`, `plugins/`), so JavaScript-only changes reuse the exact cache and only re-run the JS bundle. `ccache` is content-addressed, so a partial restore never produces a wrong binary.
 
 The workflow also runs on pushes to `develop`. GitHub only lets a PR read caches saved on its base branch, so those runs keep the cache warm for every feature PR.
 
+### Where the build time goes
+
+In a representative 1,427 s build step (run 36826406579), `Compiling` took 780 s: `RNReanimated` 504 s, `RNScreens` 95 s, `RNWorklets` 29 s, `RNGestureHandler` 25 s. This is C++ from source that ccache can serve; React Native core and Expo modules are prebuilt. The build step was 852 to 1,568 s on every run so far, because ccache never served a compile.
+
+### Why ccache did nothing, and the fix
+
+Two independent problems, reproduced locally with ccache 4.14.1:
+
+1. React Native points `CC` at `ccache-clang.sh`, which runs `$CCACHE_BINARY clang`. `CCACHE_BINARY` is a build setting, and Xcode does not export build settings into compile tasks (a logging wrapper saw it unset, while ambient variables such as `CCACHE_DIR` did arrive). The wrapper silently ran plain `clang`. `scripts/ci-ccache-env.sh` now exports the resolved binary in the job environment.
+2. Even with the binary found, ccache rejected every call (187 of 187, "unsupported compiler option") because Xcode passes `-ivfsoverlay` and ccache needs `CCACHE_SLOPPINESS=ivfsoverlay` to cache it. The same script adds it, and turns on depend mode (`CCACHE_DEPEND=true`) because the `modules` sloppiness otherwise stops ccache from noticing changed module headers.
+
+Local measurement for the `RNReanimated` scheme (Release, arm64 simulator, a fresh build tree at the same DerivedData path each time, using the committed `scripts/ci-ccache-env.sh` output):
+
+| Xcode | Mode | Cold | Warm | Warm hits |
+| --- | --- | ---: | ---: | ---: |
+| 26.6 (17F113, the version on `macos-26` runners) | direct | 53 s | 6 s | 187 of 187 |
+| 26.6 | depend (committed) | 67 s | 5 s | 187 of 187 |
+| 27.0 | direct | 153 s | 13 s | 187 of 187 |
+
+The warm run needs the same DerivedData path as the cold one because the path is part of each compile command; a different path gave 0 hits. CI uses one checkout path, so it should match. These numbers come from one Mac, not from a GitHub runner (whose cold compile was about 500 s for the same pod), so the speed-up on CI is unproven until a run completes.
+
+Alternatives not taken: Xcode's built-in compilation caching (`COMPILATION_CACHE_ENABLE_CACHING`) measured 100% hits in a separate probe and needs no extra tool, but it conflicts with React Native's ccache wrapper, has not been run on a runner, and its cache size for the whole app is unknown. Revisit it if the ccache hit rate on CI disappoints.
+
+The `Report build time and ccache statistics` step writes the build duration and ccache hits and misses to the job summary and emits a warning when ccache served nothing, so a regression is visible without reading logs.
+
+### Behavior
+
+`scripts/ci-plan-build.sh` decides what a run needs and is unit tested (`tests/unit/ci-plan-build.test.ts`); `scripts/ci-ccache-env.sh` is tested in `tests/unit/ci-ccache-env.test.ts`.
+
 | Situation | Behavior |
 | --- | --- |
-| Docs-only PR (`docs/` and `*.md`) | The macOS build and Maestro steps are skipped; the job still passes. |
+| Docs-only pull request or push (`docs/` and `*.md`) | The macOS build and Maestro steps are skipped; the job still passes. |
+| Manual run, or a change list that cannot be determined | Always builds. |
 | Native inputs changed, or more than 150 files changed | No fallback cache is restored; the build starts clean and saves a new cache. |
 | Cached build fails | The cache generation is deleted, local build state is wiped, and the build retries once from scratch. |
 | Corrupt Bun cache | `bun pm cache rm` runs and `bun install --frozen-lockfile` retries once. |
 | Manual reset | Run the workflow with `clean_cache`, or bump the repository variable `NATIVE_CACHE_VERSION` to invalidate every cache. |
 
-These changes were validated for YAML syntax only. Measure the first runs on GitHub (compare the `ccache statistics` step and total job time before and after) before treating the speed-up as proven.
+The simulator is created and booted before the build and awaited after it, so the 2 to 3 minute boot overlaps the compile. On a three-core runner this may slow the compile slightly; compare the job summary with earlier runs.
+
+Not yet verified on GitHub: the recovery path, `clean_cache`, the push-event skip, ccache hits on a runner, and the simulator overlap. Record real before and after timings on #14 from the first runs. The MuPDF build (about 185 s per run) is deliberately not cached: ADR 0001 limits where MuPDF binaries may exist, and that needs an explicit decision.
 
 ## Native inspection benchmark
 
