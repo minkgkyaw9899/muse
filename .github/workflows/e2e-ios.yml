@@ -216,11 +216,16 @@ jobs:
           if [ "$BUILD_OUTCOME" = "success" ] && [ $((hits + misses)) -eq 0 ]; then
             echo "::warning::ccache served no compile calls. It is not engaged, so every C++ file was compiled from source."
           fi
+          # Keep only the table rows; the log also holds long script-phase warnings after them.
           if [ -s "${XCODEBUILD_PROFILE_LOG:-}" ]; then
+            timing=$(awk '/^Build Timing Summary/ { print; show = 1; next } show && / \| [0-9.]+ seconds$/ { print }' "$XCODEBUILD_PROFILE_LOG")
+            echo "::group::xcodebuild timing summary"
+            printf '%s\n' "$timing"
+            echo "::endgroup::"
             {
               echo "### xcodebuild timing summary"
               echo '```'
-              awk '/^Build Timing Summary/ { show = 1 } show && NF' "$XCODEBUILD_PROFILE_LOG"
+              printf '%s\n' "$timing"
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
           fi
