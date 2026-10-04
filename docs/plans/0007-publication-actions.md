@@ -26,7 +26,7 @@ The parent spec explicitly agrees on the public Library interface and rendered s
 - [x] Confirmation identifies exactly one publication; cancellation leaves it intact.
 - [x] Removal deletes only its source and cache; committed removal survives interruption and retries cleanup.
 - [x] Actions work in both collections, with pending/failed states, 44-point targets and readable large text.
-- [ ] Tests, required validation, installed-app flows and two-axis review pass.
+- [x] Tests, required validation, installed-app flows and two-axis review pass.
 
 ## Vertical slices
 
@@ -43,11 +43,12 @@ No PDF inspection or page materialization. Metadata changes use the existing ser
 ## Validation
 
 - [x] Lint, typecheck, unit, integration and UI — `bun run validate` passed: 51 unit, 103 integration and 34 UI tests; Biome checked 95 files.
-- [ ] Relevant Maestro flows on installed iOS app — current bundle was rebuilt, signed and installed; the automation runner was terminated by the host approval service before an assertion result.
+- [x] Relevant Maestro flows on installed iOS app — publication-actions (including favorites) and smoke passed on the current production bundle on iOS 26.5, 2026-10-04. The final reimport now explicitly navigates to On My iPhone when needed; the original provider PDF remains intact after removal. Diagnostics are ignored under `.cache/favorites-e2e/maestro-reimport-fixed/` and `.cache/favorites-e2e/maestro-current-acceptance/`.
 - [x] Combined validation — `bun run validate` passed after the final import/removal regression.
 - [x] Standards and Spec reviews; findings addressed — reviews found stale import replay, cleanup recovery and iOS error announcement gaps; each now has regression coverage and a correction.
 - [x] Architecture, requirements and testing notes
-- [ ] Commit and prepare combined PR, verify metadata and both Development links
+- [x] Commit and prepare combined PR — PR #24 targets develop; owner, enhancement label, milestone, In Review, Beta and Sprint 1 fields read back; both Development links verified in the sidebar.
+- [ ] Enable session auto-fix — PR is attached to this session, but no callable auto-fix tool is available and computer use is prohibited from controlling Codex.
 
 ## Tracker
 

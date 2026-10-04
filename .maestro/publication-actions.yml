@@ -43,6 +43,21 @@ appId: com.minkgkyaw9899.muse
 - tapOn: Import PDFs
 - tapOn: Browse
 - runFlow:
+    when:
+      notVisible:
+        id: 'Muse Import Fixture, pdf'
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: 'DOC.sidebar.item.On My iPhone'
+          timeout: 60000
+      - tapOn:
+          id: 'DOC.sidebar.item.On My iPhone'
+          point: '90%,50%'
+          retryTapIfNoChange: true
+- assertVisible:
+    id: 'Muse Import Fixture, pdf'
+- runFlow:
     file: helpers/select-file.yml
     env:
       FILE_ID: 'Muse Import Fixture, pdf'
