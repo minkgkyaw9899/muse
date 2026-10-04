@@ -1,9 +1,11 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { AccessibilityInfo, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type {
   FavoriteChangeResult,
   Publication,
+  PublicationChange,
   PublicationLibrary,
 } from '@/features/library/publication-library';
 import { FavoritesScreen } from '@/screens/favorites-screen';
@@ -31,7 +33,7 @@ const fieldNotes: Publication = {
 /** Screen adapter: state and subscriptions obey the same Library interface as the app. */
 function collection(initial: Publication[] = [fieldNotes]): PublicationLibrary {
   let rows = initial;
-  const observers = new Set<() => void>();
+  const observers = new Set<(change?: PublicationChange) => void>();
   return {
     list: async () => rows,
     subscribe: (listener) => {
@@ -56,7 +58,7 @@ function collection(initial: Publication[] = [fieldNotes]): PublicationLibrary {
     },
     remove: async (id) => {
       rows = rows.filter((row) => row.id !== id);
-      for (const observer of observers) observer();
+      for (const observer of observers) observer({ kind: 'removed', id });
       return { status: 'removed', cleanupPending: false };
     },
     importOne: async () => ({ status: 'cancelled' }),
@@ -178,6 +180,10 @@ it('retains a rename draft on failure and disables submission while a retry is p
   await fireEvent.changeText(screen.getByLabelText('Publication title'), 'Draft title');
   await fireEvent.press(screen.getByRole('button', { name: 'Save title' }));
   expect(await screen.findByText('Please retry this rename.')).toBeTruthy();
+  if (Platform.OS === 'ios')
+    expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(
+      'Please retry this rename.',
+    );
   expect(screen.getByLabelText('Publication title')).toHaveDisplayValue('Draft title');
   await fireEvent.press(screen.getByRole('button', { name: 'Save title' }));
   expect(screen.getByRole('button', { name: 'Save title' })).toBeDisabled();
@@ -208,6 +214,82 @@ it('keeps the publication and confirmation after a failed removal, then permits 
   fails = false;
   await fireEvent.press(screen.getByRole('button', { name: 'Confirm removal of Field Notes' }));
   expect(await screen.findByText('Your library is empty')).toBeTruthy();
+});
+
+it('does not restore a publication removed while its import batch is still finishing', async () => {
+  const library = collection([]);
+  let finishBatch!: () => void;
+  const result = {
+    index: 0,
+    sourceFilename: fieldNotes.sourceFilename,
+    result: { status: 'imported' as const, publication: fieldNotes },
+  };
+  library.importMany = async (options) => {
+    options?.onProgress?.({ completed: 1, total: 2, file: result });
+    await new Promise<void>((resolve) => {
+      finishBatch = resolve;
+    });
+    return { status: 'completed', results: [result] };
+  };
+  await render(providers(<LibraryScreen library={library} />));
+  await screen.findByText('Your library is empty');
+  await fireEvent.press(screen.getByRole('button', { name: 'Import PDFs' }));
+  await fireEvent.press(
+    await screen.findByRole('button', { name: 'Publication actions for Field Notes' }),
+  );
+  await fireEvent.press(screen.getByRole('button', { name: 'Remove Field Notes' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Confirm removal of Field Notes' }));
+  expect(await screen.findByText('Your library is empty')).toBeTruthy();
+  await act(async () => {
+    finishBatch();
+  });
+  expect(screen.queryByText('Field Notes')).toBeNull();
+  expect(screen.getByText('Your library is empty')).toBeTruthy();
+});
+
+it('does not restore a removed import when its durable change arrives before progress', async () => {
+  const library = collection([]);
+  let notify!: () => void;
+  library.subscribe = (listener) => {
+    notify = listener;
+    return () => {};
+  };
+  const remove = library.remove;
+  library.remove = async (id) => {
+    const outcome = await remove(id);
+    library.list = async () => [];
+    return outcome;
+  };
+  let finishBatch!: () => void;
+  const result = {
+    index: 0,
+    sourceFilename: fieldNotes.sourceFilename,
+    result: { status: 'imported' as const, publication: fieldNotes },
+  };
+  library.importMany = async (options) => {
+    const existing = await library.list();
+    // A durable import can notify its snapshot before cleanup lets it report progress.
+    (library as { list(): Promise<Publication[]> }).list = async () => [...existing, fieldNotes];
+    notify();
+    await new Promise<void>((resolve) => {
+      finishBatch = resolve;
+    });
+    options?.onProgress?.({ completed: 1, total: 1, file: result });
+    return { status: 'completed', results: [result] };
+  };
+  await render(providers(<LibraryScreen library={library} />));
+  await screen.findByText('Your library is empty');
+  await fireEvent.press(screen.getByRole('button', { name: 'Import PDFs' }));
+  await fireEvent.press(
+    await screen.findByRole('button', { name: 'Publication actions for Field Notes' }),
+  );
+  await fireEvent.press(screen.getByRole('button', { name: 'Remove Field Notes' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Confirm removal of Field Notes' }));
+  await act(async () => {
+    finishBatch();
+  });
+  expect(screen.queryByText('Field Notes')).toBeNull();
+  expect(screen.getByText('Your library is empty')).toBeTruthy();
 });
 
 it('keeps a saved favorite when an older collection read completes later', async () => {

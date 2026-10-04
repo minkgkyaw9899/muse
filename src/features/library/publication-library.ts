@@ -43,6 +43,7 @@ export type RenameResult =
     };
 
 export type PendingPublicationRemoval = Pick<Publication, 'id' | 'ownedPath'>;
+export type PublicationChange = { kind: 'changed' } | { kind: 'removed'; id: string };
 export type RemovalResult =
   | { status: 'removed'; cleanupPending: boolean }
   | { status: 'error'; error: { category: 'storage' | 'notFound'; message: string } };
@@ -119,7 +120,7 @@ export type PublicationLibrary = {
   /** Call only after the reader confirms this identified publication. */
   remove(id: string): Promise<RemovalResult>;
   /** Observes committed publication changes. The returned function removes the observer. */
-  subscribe(listener: () => void): () => void;
+  subscribe(listener: (change?: PublicationChange) => void): () => void;
   importOne(options?: { signal?: AbortSignal }): Promise<ImportResult>;
   importMany(options?: {
     signal?: AbortSignal;
@@ -212,12 +213,12 @@ export function createPublicationLibrary({
   let ready: Promise<void> | null = null;
   let importing = false;
   let admission = Promise.resolve();
-  const listeners = new Set<() => void>();
+  const listeners = new Set<(change?: PublicationChange) => void>();
 
-  function publishChange(): void {
+  function publishChange(change: PublicationChange = { kind: 'changed' }): void {
     for (const listener of [...listeners]) {
       try {
-        listener();
+        listener(change);
       } catch {
         // Observers cannot change a committed publication's outcome.
       }
@@ -238,12 +239,20 @@ export function createPublicationLibrary({
     if (!ready) {
       ready = (async () => {
         await repository.initialize();
-        for (const pending of await repository.listPendingRemovals()) {
-          await fileStore.removePublication(pending);
-          await repository.finishRemoval(pending.id);
+        const pendingRemovals = await repository.listPendingRemovals();
+        for (const pending of pendingRemovals) {
+          try {
+            await fileStore.removePublication(pending);
+            await repository.finishRemoval(pending.id);
+          } catch {
+            // A still-owned pending source will be retried next launch; it cannot block the Library.
+          }
         }
         const publications = await repository.list();
-        await fileStore.reconcile(publications.map((publication) => publication.ownedPath));
+        await fileStore.reconcile([
+          ...publications.map((publication) => publication.ownedPath),
+          ...pendingRemovals.map((pending) => pending.ownedPath),
+        ]);
       })().catch((error: unknown) => {
         ready = null;
         throw error;
@@ -476,7 +485,7 @@ export function createPublicationLibrary({
               message: 'This publication is no longer in your Library.',
             },
           };
-        publishChange();
+        publishChange({ kind: 'removed', id });
         try {
           await fileStore.removePublication(pending);
           await repository.finishRemoval(id);

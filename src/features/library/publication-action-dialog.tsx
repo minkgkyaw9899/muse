@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -32,12 +33,15 @@ export function PublicationActionDialog({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const active = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    active.current = true;
+    return () => {
       active.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
+  useEffect(() => {
+    if (Platform.OS === 'ios' && error) AccessibilityInfo.announceForAccessibility(error);
+  }, [error]);
   async function submit() {
     if (pending) return;
     setPending(true);
@@ -62,12 +66,13 @@ export function PublicationActionDialog({
         if (!pending) onDismiss();
       }}
     >
-      <SafeAreaView className="flex-1 bg-canvas" accessibilityViewIsModal>
+      <SafeAreaView style={{ flex: 1, backgroundColor: tokens.canvas }} accessibilityViewIsModal>
         <KeyboardAvoidingView
-          className="flex-1"
+          style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <ScrollList
+            style={{ flex: 1 }}
             data={[]}
             keyboardShouldPersistTaps="handled"
             contentContainerClassName="grow px-5 py-6"

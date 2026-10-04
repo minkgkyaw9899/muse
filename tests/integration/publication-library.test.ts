@@ -153,6 +153,31 @@ describe('PublicationLibrary', () => {
     expect(changed).not.toHaveBeenCalled();
   });
 
+  it('keeps unrelated publications usable when interrupted cleanup still fails on relaunch', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    await library.importOne();
+    const [original] = await library.list();
+    const other = { ...original, id: 'other', ownedPath: 'publications/other.pdf' };
+    adapters.rows.set(other.id, other);
+    adapters.files.add(other.ownedPath);
+    adapters.fileStore.removePublication = async () => {
+      throw new Error('source temporarily busy');
+    };
+    await expect(library.remove(original.id)).resolves.toEqual({
+      status: 'removed',
+      cleanupPending: true,
+    });
+    const relaunched = createPublicationLibrary(adapters);
+    await expect(relaunched.list()).resolves.toEqual([other]);
+    await expect(relaunched.rename(other.id, 'Still available')).resolves.toMatchObject({
+      status: 'saved',
+    });
+    expect(adapters.files).toEqual(
+      new Set(['publications/publication-1.pdf', 'publications/other.pdf']),
+    );
+  });
+
   it('removes only the identified publication and recovers interrupted file cleanup on relaunch', async () => {
     const adapters = createAdapters();
     const library = createPublicationLibrary(adapters);

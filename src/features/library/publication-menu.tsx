@@ -45,8 +45,9 @@ export function PublicationMenu(props: PublicationMenuProps) {
         />
       </Pressable>
       <Modal visible={open} animationType="none" onRequestClose={() => setOpen(false)}>
-        <SafeAreaView className="flex-1 bg-canvas" accessibilityViewIsModal>
+        <SafeAreaView style={{ flex: 1, backgroundColor: tokens.canvas }} accessibilityViewIsModal>
           <ScrollList
+            className="flex-1"
             data={[]}
             contentContainerClassName="grow px-5 py-6"
             ListHeaderComponent={

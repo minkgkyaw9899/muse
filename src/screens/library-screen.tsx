@@ -56,6 +56,8 @@ export function LibraryScreen({
   const readVersion = useRef(0);
   // Returned import records remain visible until a successful snapshot includes them.
   const pendingImportedIds = useRef(new Set<string>());
+  // A committed import can notify the Library before its worker reports progress. Do not revive it.
+  const removedDuringImport = useRef(new Set<string>());
   const reload = useRef<() => void>(() => {});
   const [publications, setPublications] = useState<Publication[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,7 +106,14 @@ export function LibraryScreen({
         });
     }
     reload.current = refresh;
-    const unsubscribe = library.subscribe(refresh);
+    const unsubscribe = library.subscribe((change) => {
+      if (change?.kind === 'removed') {
+        pendingImportedIds.current.delete(change.id);
+        if (controller.current) removedDuringImport.current.add(change.id);
+        setPublications((current) => current.filter((row) => row.id !== change.id));
+      }
+      refresh();
+    });
     refresh();
     return () => {
       active = false;
@@ -165,6 +174,16 @@ export function LibraryScreen({
   async function onImport() {
     if (loading || loadFailed || controller.current) return;
     const abort = new AbortController();
+    removedDuringImport.current.clear();
+    const received = new Set<string>();
+    function receive(added: Publication[]) {
+      const unseen = added.filter(
+        (publication) =>
+          !received.has(publication.id) && !removedDuringImport.current.has(publication.id),
+      );
+      for (const publication of unseen) received.add(publication.id);
+      addPublications(unseen);
+    }
     controller.current = abort;
     setImporting(true);
     try {
@@ -173,14 +192,14 @@ export function LibraryScreen({
         // Rows appear as each file completes; the outcome itself is reported once, in a toast.
         onProgress: (event) => {
           if (!mounted.current || controller.current !== abort) return;
-          if (event.file) addPublications(importedPublication(event.file));
+          if (event.file) receive(importedPublication(event.file));
         },
       });
       if (!mounted.current || controller.current !== abort) return;
       if (batch.status === 'error') {
         toast.show({ kind: 'error', message: batch.error.message });
       } else {
-        addPublications(batch.results.flatMap(importedPublication));
+        receive(batch.results.flatMap(importedPublication));
         const summary = summarizeImport(batch.results);
         if (summary) toast.show(summary);
       }
@@ -194,6 +213,7 @@ export function LibraryScreen({
     } finally {
       if (mounted.current) setImporting(false);
       if (controller.current === abort) controller.current = null;
+      if (controller.current !== abort) removedDuringImport.current.clear();
     }
   }
 
@@ -370,6 +390,7 @@ export function LibraryScreen({
             if (mounted.current && result.status === 'removed') {
               readVersion.current += 1;
               pendingImportedIds.current.delete(action.publication.id);
+              if (controller.current) removedDuringImport.current.add(action.publication.id);
               setPublications((current) =>
                 current.filter((row) => row.id !== action.publication.id),
               );
