@@ -41,6 +41,8 @@ The `CI` validate job caches Bun's package cache. The `iOS Maestro E2E` job cach
 
 The workflow also runs on pushes to `develop`. GitHub only lets a PR read caches saved on its base branch, so those runs keep the cache warm for every feature PR.
 
+The iOS job restores caches with `actions/cache/restore` and saves them with explicit `actions/cache/save` steps: Bun right after `bun install`, and ccache and CocoaPods right after a successful build, before the Maestro flows. The cache action's own post-job save is skipped whenever any later step fails, and `develop` run 37275739999 lost a fresh 0.4 GB ccache that way when `import-large` failed after a good build. A save runs only when the primary key was not an exact hit, or after a recovery rebuild, because recovery deletes the exact-hit key first.
+
 ### Where the build time goes
 
 In a representative 1,427 s build step (run 36826406579), `Compiling` took 780 s: `RNReanimated` 504 s, `RNScreens` 95 s, `RNWorklets` 29 s, `RNGestureHandler` 25 s. This is C++ from source that ccache can serve; React Native core and Expo modules are prebuilt. The build step was 852 to 1,568 s on every run so far, because ccache never served a compile.
@@ -89,7 +91,7 @@ Measured on GitHub (PR 23, `macos-26`, Xcode 26.6): the cold run compiled 418 ca
 
 Expo's `run:ios` formats xcodebuild's output and drops its timing summary. A manual run with `profile_build` enabled puts `scripts/xcodebuild-profile.sh` first on `PATH` as `xcodebuild`; it adds `-showBuildTimingSummary`, prints output unchanged, keeps the raw log, and returns the real exit status (`tests/unit/xcodebuild-profile.test.ts`). The job summary and the step log then show the `Build Timing Summary` table: total seconds per task category (`CompileC`, `SwiftCompile`, `Ld` and so on). Use it on a warm run to see how long C-family compile tasks still take when ccache hits, which the timestamp profile could not settle. It reports categories, not targets. Locally the shim worked through a full `expo run:ios` build with Xcode 26.6. Normal runs and pull requests are unaffected.
 
-Not yet verified on GitHub (none of this has run): the docs-only skip for pull requests and pushes, the Bun cache retry, the recovery path, and `clean_cache`. Known gap carried over from #16: when the recovery step deletes a cache whose key was an exact hit, `actions/cache` skips its post-save, so the clean rebuild may not repopulate it. The MuPDF build (about 185 s per run) is deliberately not cached: ADR 0001 limits where MuPDF binaries may exist, and that needs an explicit decision.
+Not yet verified on GitHub (none of this has run): the docs-only skip for pull requests and pushes, the Bun cache retry, the recovery path, and `clean_cache`. The explicit save steps are also unproven until a run shows `Cache saved with key` before the Maestro flows start. They save again after a recovery rebuild, which closes the gap carried over from #16 (a deleted exact-hit key was never re-saved), but that path has not run either. The MuPDF build (about 185 s per run) is deliberately not cached: ADR 0001 limits where MuPDF binaries may exist, and that needs an explicit decision.
 
 ## Native inspection benchmark
 

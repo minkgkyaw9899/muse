@@ -79,7 +79,8 @@ jobs:
 
       - name: Cache Bun packages
         if: steps.plan.outputs.run_build == 'true'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: bun-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ env.CACHE_VERSION }}-${{ hashFiles('bun.lock') }}
@@ -90,6 +91,15 @@ jobs:
       - name: Install dependencies
         if: steps.plan.outputs.run_build == 'true'
         run: bun install --frozen-lockfile || (bun pm cache rm && bun install --frozen-lockfile)
+
+      # Saved explicitly, not by the cache action's post step: that step is skipped when any later
+      # step fails, which would discard the cache whenever a Maestro flow is flaky.
+      - name: Save Bun packages
+        if: steps.plan.outputs.run_build == 'true' && steps.bun-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ env.CACHE_VERSION }}-${{ hashFiles('bun.lock') }}
 
       - name: Install Maestro 2.10.0
         if: steps.plan.outputs.run_build == 'true'
@@ -109,7 +119,7 @@ jobs:
       - name: Cache C++ compilation (ccache)
         if: steps.plan.outputs.run_build == 'true'
         id: ccache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.ccache
           key: ccache-${{ runner.os }}-${{ env.CACHE_VERSION }}-${{ hashFiles('bun.lock', 'app.json', 'eas.json', 'modules/**', 'plugins/**') }}
@@ -117,7 +127,8 @@ jobs:
 
       - name: Cache CocoaPods downloads
         if: steps.plan.outputs.run_build == 'true'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: pods
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/Library/Caches/CocoaPods
           key: pods-${{ runner.os }}-${{ env.CACHE_VERSION }}-${{ hashFiles('bun.lock', 'app.json', 'modules/**') }}
@@ -181,6 +192,7 @@ jobs:
       # Recovery: a failing build after a cache restore may be caused by a stale cache.
       # Delete this cache generation, wipe local build state, and build once from scratch.
       - name: Recover with a clean rebuild
+        id: recover
         if: steps.plan.outputs.run_build == 'true' && steps.build.outcome == 'failure'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -229,6 +241,28 @@ jobs:
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      # Save the compile caches as soon as the build has succeeded, before the Maestro flows can fail.
+      # After a recovery rebuild, save even when the primary key was an exact hit: recovery deleted it.
+      - name: Save C++ compilation cache (ccache)
+        if: >-
+          steps.plan.outputs.run_build == 'true' &&
+          (steps.build.outcome == 'success' || steps.recover.outcome == 'success') &&
+          (steps.ccache.outputs.cache-hit != 'true' || steps.recover.outcome == 'success')
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.ccache
+          key: ccache-${{ runner.os }}-${{ env.CACHE_VERSION }}-${{ hashFiles('bun.lock', 'app.json', 'eas.json', 'modules/**', 'plugins/**') }}
+
+      - name: Save CocoaPods downloads
+        if: >-
+          steps.plan.outputs.run_build == 'true' &&
+          (steps.build.outcome == 'success' || steps.recover.outcome == 'success') &&
+          (steps.pods.outputs.cache-hit != 'true' || steps.recover.outcome == 'success')
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/Library/Caches/CocoaPods
+          key: pods-${{ runner.os }}-${{ env.CACHE_VERSION }}-${{ hashFiles('bun.lock', 'app.json', 'modules/**') }}
 
       - name: Install app and seed Files fixture
         if: steps.plan.outputs.run_build == 'true'
