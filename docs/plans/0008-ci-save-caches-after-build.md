@@ -20,7 +20,7 @@ On `develop` run 37275739999 (the first push run after #23) the build succeeded 
 
 - Replace each `actions/cache` step in `e2e-ios.yml` with `actions/cache/restore` plus an explicit `actions/cache/save` placed right after the work it caches: Bun after `bun install`; ccache and CocoaPods after a successful build (including a successful recovery rebuild).
 - Save after a successful recovery even when the primary key was an exact hit. Recovery deletes that key first, and the restore step's `cache-hit` output would otherwise suppress the save (the known gap recorded in `docs/testing.md`).
-- Keep keys, restore-keys, paths, pinned action SHA and `fresh` handling unchanged.
+- Keep keys, restore-keys, paths, pinned action SHA and `fresh` handling unchanged. Save steps reuse each restore step's `cache-primary-key` output instead of recomputing `hashFiles`, because `scripts/build-mupdf.sh` writes `MuPDF.xcframework` into `modules/`, which the ccache and Pods keys hash (found in review: a recomputed key would differ from the restored one).
 - Update `docs/testing.md`.
 
 ### Excluded
@@ -40,7 +40,8 @@ On `develop` run 37275739999 (the first push run after #23) the build succeeded 
 - [ ] A restore with an exact key hit does not try to save again (no duplicate-key warning), except after a recovery rebuild.
 - [ ] After a recovery rebuild the deleted cache generation is saved again.
 - [ ] Accessibility: not applicable (no UI).
-- [ ] Failure behavior: when the build fails and recovery fails, nothing is saved.
+- [ ] Failure behavior: when the build fails and recovery fails, the ccache and CocoaPods caches are not saved (the Bun cache is, since it is saved right after install and does not depend on the build).
+- [ ] Performance budget: not applicable to the app; the CI effect is measured in the run log (caches saved before Maestro starts). Native or vertical-slice sections of the template do not apply to workflow wiring.
 
 ## Validation
 
@@ -54,5 +55,5 @@ On `develop` run 37275739999 (the first push run after #23) the build succeeded 
 
 - Caches are disposable; reverting the workflow restores the previous behavior. `NATIVE_CACHE_VERSION` invalidates everything.
 - Risk: a save that runs before the job finishes stores a cache from a build whose later steps fail. That is intended: the cache is the compile output, not the test result, and ccache is content-addressed.
-- Risk: restore and save with the same `key` and `path` must match, or the save writes an unreadable cache. Both use the same expressions.
+- Risk: restore and save keys must be the same value, not only the same expression. The save steps use the restore step's `cache-primary-key` output for that reason.
 - Cost: a PR run now saves caches under its merge ref even when Maestro fails; these entries are not shared and count against the 10 GB quota until they age out.

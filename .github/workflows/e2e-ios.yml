@@ -99,7 +99,7 @@ jobs:
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ env.CACHE_VERSION }}-${{ hashFiles('bun.lock') }}
+          key: ${{ steps.bun-cache.outputs.cache-primary-key }}
 
       - name: Install Maestro 2.10.0
         if: steps.plan.outputs.run_build == 'true'
@@ -244,25 +244,27 @@ jobs:
 
       # Save the compile caches as soon as the build has succeeded, before the Maestro flows can fail.
       # After a recovery rebuild, save even when the primary key was an exact hit: recovery deleted it.
+      # Reuse the key computed at restore time: the MuPDF build writes into modules/, which the keys
+      # hash, so recomputing it here would give a different key.
       - name: Save C++ compilation cache (ccache)
         if: >-
-          steps.plan.outputs.run_build == 'true' &&
+          !cancelled() && steps.plan.outputs.run_build == 'true' &&
           (steps.build.outcome == 'success' || steps.recover.outcome == 'success') &&
           (steps.ccache.outputs.cache-hit != 'true' || steps.recover.outcome == 'success')
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.ccache
-          key: ccache-${{ runner.os }}-${{ env.CACHE_VERSION }}-${{ hashFiles('bun.lock', 'app.json', 'eas.json', 'modules/**', 'plugins/**') }}
+          key: ${{ steps.ccache.outputs.cache-primary-key }}
 
       - name: Save CocoaPods downloads
         if: >-
-          steps.plan.outputs.run_build == 'true' &&
+          !cancelled() && steps.plan.outputs.run_build == 'true' &&
           (steps.build.outcome == 'success' || steps.recover.outcome == 'success') &&
           (steps.pods.outputs.cache-hit != 'true' || steps.recover.outcome == 'success')
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/Library/Caches/CocoaPods
-          key: pods-${{ runner.os }}-${{ env.CACHE_VERSION }}-${{ hashFiles('bun.lock', 'app.json', 'modules/**') }}
+          key: ${{ steps.pods.outputs.cache-primary-key }}
 
       - name: Install app and seed Files fixture
         if: steps.plan.outputs.run_build == 'true'

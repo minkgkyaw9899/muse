@@ -41,7 +41,7 @@ The `CI` validate job caches Bun's package cache. The `iOS Maestro E2E` job cach
 
 The workflow also runs on pushes to `develop`. GitHub only lets a PR read caches saved on its base branch, so those runs keep the cache warm for every feature PR.
 
-The iOS job restores caches with `actions/cache/restore` and saves them with explicit `actions/cache/save` steps: Bun right after `bun install`, and ccache and CocoaPods right after a successful build, before the Maestro flows. The cache action's own post-job save is skipped whenever any later step fails, and `develop` run 37275739999 lost a fresh 0.4 GB ccache that way when `import-large` failed after a good build. A save runs only when the primary key was not an exact hit, or after a recovery rebuild, because recovery deletes the exact-hit key first.
+The iOS job restores caches with `actions/cache/restore` and saves them with explicit `actions/cache/save` steps: Bun right after `bun install`, and ccache and CocoaPods right after a successful build, before the Maestro flows. The cache action's own post-job save is skipped whenever any later step fails, and `develop` run 37275739999 lost a fresh 0.4 GB ccache that way when `import-large` failed after a good build. A save runs only when the primary key was not an exact hit, or after a recovery rebuild, because recovery deletes the exact-hit key first. The save steps reuse each restore step's `cache-primary-key`, because the MuPDF build writes into `modules/`, which the keys hash. A known remaining gap: if an exact-hit Bun cache is corrupt, the retry repairs the local copy but the corrupt cache is not replaced.
 
 ### Where the build time goes
 
