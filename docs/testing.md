@@ -77,7 +77,7 @@ The `Report build time and ccache statistics` step writes the build duration and
 | Docs-only pull request or push (`docs/` and `*.md`) | The macOS build and Maestro steps are skipped; the job still passes. |
 | Manual run, or a change list that cannot be determined | Always builds. |
 | Native inputs changed, or more than 150 files changed | No fallback cache is restored; the build starts clean and saves a new cache. |
-| Cached build fails | The cache generation is deleted, local build state is wiped, and the build retries once from scratch. |
+| Cached build fails | The cache generation saved by this run's own ref is deleted, local build state is wiped, and the build retries once from scratch. A pull request never deletes `develop`'s shared cache, because it could not replace it; a stale shared cache is repaired by the next failing push run on `develop`. |
 | Corrupt Bun cache | `bun pm cache rm` runs and `bun install --frozen-lockfile` retries once. |
 | Manual reset | Run the workflow with `clean_cache`, or bump the repository variable `NATIVE_CACHE_VERSION` to invalidate every cache. |
 

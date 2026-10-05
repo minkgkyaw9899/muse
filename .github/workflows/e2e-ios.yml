@@ -190,7 +190,8 @@ jobs:
           scripts/build-ios-e2e.sh /tmp/muse-e2e-build
 
       # Recovery: a failing build after a cache restore may be caused by a stale cache.
-      # Delete this cache generation, wipe local build state, and build once from scratch.
+      # Delete this ref's cache generation (never another ref's: a pull request must not delete the
+      # shared develop cache, which it could not re-save), wipe local build state, and build once clean.
       - name: Recover with a clean rebuild
         id: recover
         if: steps.plan.outputs.run_build == 'true' && steps.build.outcome == 'failure'
@@ -202,7 +203,7 @@ jobs:
           ccache --clear || true
           rm -rf ios ~/Library/Developer/Xcode/DerivedData ~/Library/Caches/CocoaPods ~/.ccache
           for prefix in "ccache-${RUNNER_OS}-${CACHE_VERSION}-" "pods-${RUNNER_OS}-${CACHE_VERSION}-"; do
-            gh cache list --repo "$GITHUB_REPOSITORY" --key "$prefix" --json id --jq '.[].id' \
+            gh cache list --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF" --key "$prefix" --json id --jq '.[].id' \
               | xargs -n1 gh cache delete --repo "$GITHUB_REPOSITORY" || true
           done
           scripts/build-ios-e2e.sh /tmp/muse-e2e-build

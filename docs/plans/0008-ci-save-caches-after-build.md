@@ -19,6 +19,7 @@ On `develop` run 37275739999 (the first push run after #23) the build succeeded 
 ### Included
 
 - Replace each `actions/cache` step in `e2e-ios.yml` with `actions/cache/restore` plus an explicit `actions/cache/save` placed right after the work it caches: Bun after `bun install`; ccache and CocoaPods after a successful build (including a successful recovery rebuild).
+- Scope the recovery step's cache deletion to the current ref (`gh cache list --ref "$GITHUB_REF"`), found in review: unscoped, a pull request job deleted `develop`'s shared cache, and its replacement was saved under the PR merge ref, which `develop` and other PRs cannot read.
 - Save after a successful recovery even when the primary key was an exact hit. Recovery deletes that key first, and the restore step's `cache-hit` output would otherwise suppress the save (the known gap recorded in `docs/testing.md`).
 - Keep keys, restore-keys, paths, pinned action SHA and `fresh` handling unchanged. Save steps reuse each restore step's `cache-primary-key` output instead of recomputing `hashFiles`, because `scripts/build-mupdf.sh` writes `MuPDF.xcframework` into `modules/`, which the ccache and Pods keys hash (found in review: a recomputed key would differ from the restored one).
 - Update `docs/testing.md`.
