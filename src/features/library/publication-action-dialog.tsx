@@ -14,7 +14,11 @@ import { useAppTheme } from '@/theme/theme-provider';
 import { ScrollList } from '@/ui/scroll-list';
 import type { Publication, RemovalResult, RenameResult } from './publication-library';
 
-export type PublicationAction = { kind: 'rename' | 'remove'; publication: Publication };
+export type PublicationAction = {
+  kind: 'rename' | 'remove';
+  publication: Publication;
+  count?: number;
+};
 
 /** One active dialog per collection; drafts survive errors and close only on a durable result. */
 export function PublicationActionDialog({
@@ -29,6 +33,10 @@ export function PublicationActionDialog({
   onRemove(): Promise<RemovalResult>;
 }) {
   const { tokens } = useAppTheme();
+  const countLabel =
+    action.count === undefined
+      ? null
+      : `${action.count} ${action.count === 1 ? 'publication' : 'publications'}`;
   const [draft, setDraft] = useState(action.publication.title);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,10 +87,14 @@ export function PublicationActionDialog({
             ListHeaderComponent={
               <View className="gap-4">
                 <Text accessibilityRole="header" className="font-bold text-2xl text-text">
-                  {action.kind === 'rename' ? 'Rename publication' : 'Remove one publication?'}
+                  {action.kind === 'rename'
+                    ? 'Rename publication'
+                    : countLabel
+                      ? `Remove ${countLabel}?`
+                      : 'Remove one publication?'}
                 </Text>
                 <Text selectable className="text-lg text-text">
-                  {action.publication.title}
+                  {countLabel ? `${countLabel} selected` : action.publication.title}
                 </Text>
                 {action.kind === 'rename' ? (
                   <>
@@ -104,8 +116,9 @@ export function PublicationActionDialog({
                   </>
                 ) : (
                   <Text selectable className="text-base text-muted-text">
-                    This removes this publication and its saved data from Muse. The original in
-                    Files is kept. This cannot be undone.
+                    {countLabel
+                      ? 'This removes the selected publications and their saved data from Muse. Originals in Files are kept. This cannot be undone.'
+                      : 'This removes this publication and its saved data from Muse. The original in Files is kept. This cannot be undone.'}
                   </Text>
                 )}
                 {error ? (
@@ -122,7 +135,7 @@ export function PublicationActionDialog({
                   accessibilityLabel={
                     action.kind === 'rename'
                       ? 'Save title'
-                      : `Confirm removal of ${action.publication.title}`
+                      : `Confirm removal of ${countLabel ?? action.publication.title}`
                   }
                   disabled={pending}
                   accessibilityState={{ disabled: pending, busy: pending }}

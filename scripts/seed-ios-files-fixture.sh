@@ -19,6 +19,9 @@ DESTINATION="$GROUP_PATH/File Provider Storage/Muse Import Fixture.pdf"
 mkdir -p "$(dirname "$DESTINATION")"
 rsync "$FIXTURE" "$DESTINATION"
 rsync "$FIXTURE" "$GROUP_PATH/File Provider Storage/Muse Duplicate Fixture.pdf"
+# A distinct, valid PDF for multi-publication browse/removal acceptance (same two-page content).
+cp "$FIXTURE" "$GROUP_PATH/File Provider Storage/Muse Browse Fixture.pdf"
+printf '\n%% Muse browse fixture\n' >> "$GROUP_PATH/File Provider Storage/Muse Browse Fixture.pdf"
 rsync "$ROOT/tests/fixtures/pdf/corrupt-header-only.pdf" "$GROUP_PATH/File Provider Storage/Muse Damaged Fixture.pdf"
 if [ "${2:-}" = "--large" ]; then
   if [ ! -f "$ROOT/.cache/fixtures/scan-100p-150mb.pdf" ]; then

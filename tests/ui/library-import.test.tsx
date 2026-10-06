@@ -17,25 +17,32 @@ import { ToastProvider } from '@/ui/toast';
 // Exercise the supported non-glass controls; native glass presentation is checked on simulator.
 jest.mock('@/theme/glass-capability', () => ({ detectTabBarKind: () => 'fallback' }));
 
-const favoriteActions: Pick<PublicationLibrary, 'subscribe' | 'setFavorite' | 'rename' | 'remove'> =
-  {
-    rename: async () => ({
-      status: 'error',
-      error: { category: 'storage', message: 'Rename unavailable in this import adapter.' },
-    }),
-    remove: async () => ({
-      status: 'error',
-      error: { category: 'storage', message: 'Removal unavailable in this import adapter.' },
-    }),
-    subscribe: () => () => {},
-    setFavorite: async () => ({
-      status: 'error',
-      error: {
-        category: 'storage',
-        message: 'Favorite changes are unavailable in this import adapter.',
-      },
-    }),
-  };
+const favoriteActions: Pick<
+  PublicationLibrary,
+  'subscribe' | 'setFavorite' | 'rename' | 'remove' | 'removeMany'
+> = {
+  rename: async () => ({
+    status: 'error',
+    error: { category: 'storage', message: 'Rename unavailable in this import adapter.' },
+  }),
+  removeMany: async function (ids) {
+    const results = [];
+    for (const id of new Set(ids)) results.push({ id, result: await this.remove(id) });
+    return results;
+  },
+  remove: async () => ({
+    status: 'error',
+    error: { category: 'storage', message: 'Removal unavailable in this import adapter.' },
+  }),
+  subscribe: () => () => {},
+  setFavorite: async () => ({
+    status: 'error',
+    error: {
+      category: 'storage',
+      message: 'Favorite changes are unavailable in this import adapter.',
+    },
+  }),
+};
 
 const publication: Publication = {
   isFavorite: false,
@@ -244,7 +251,7 @@ it('opens fallback Library search, filters as typed, and cancels without changin
   };
   await render(withProviders(<LibraryScreen library={library} />));
   expect(await screen.findByText('Field Notes')).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'Edit Library' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Edit Library' })).toBeEnabled();
   await fireEvent.press(screen.getByRole('button', { name: 'Search Library' }));
   await fireEvent.changeText(screen.getByLabelText('Search Library titles'), 'missing');
   expect(screen.getByText('No matching publications')).toBeTruthy();
