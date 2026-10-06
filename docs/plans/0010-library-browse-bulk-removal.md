@@ -25,3 +25,17 @@ Run targeted tests per slice, lint, typecheck, unit/integration/UI suites and va
 
 ## Risks and rollback
 No schema or native changes. Work scales with publication count, never page count. Existing transactional removal and pending cleanup preserve recovery. Selection is temporary screen state. Reverting UI/query additions retains existing metadata compatibility.
+
+## Review and validation evidence
+
+- [x] Red/green Library query, partial-removal and rendered selection slices.
+- [x] `bun run lint`, `bun run typecheck`, unit/integration/UI and `bun run validate`: 73 unit, 108 integration, 40 UI tests; Biome checked 102 files.
+- [x] Standards and Spec reviews against `051475ad56e71c44654c0659c3c6ee952d50d7e4`; follow-up review of `e44401f` reports no remaining actionable findings.
+- [x] Initial iOS 26.5 `library-browse-removal.yml`: sort controls, no unopened Recent, filtered Search selection/cancellation/removal, hidden-publication preservation across relaunch, two-publication confirmation/removal and durable empty state.
+- [x] Final reviewed-bundle regression on iOS 26.5: bulk flow (1m 50s), publication-actions including favorites (2m 17s), and smoke passed. Diagnostics: `.cache/library-e2e/maestro-final/`.
+
+Review corrected disabled expanded sort choices after a loading failure (reproduced red before fixing), stale disabled-Edit documentation, duplicated single/bulk state reconciliation and the fabricated rename callback in bulk confirmation.
+
+Installed-app testing uses a disposable iPhone 17 Pro simulator on iOS 26.5. `expo export:embed --dev false --bytecode` bundles this checkout into a local copy of an existing SDK-57 MuPDF-enabled Release simulator shell; native code/dependencies are unchanged. This validates the current production UI and real file/SQLite/renderer adapters, without claiming a fresh native compilation. An initial cached shell contained the renderer stub and could not import; symbol inspection identified a MuPDF-enabled shell, and the complete flow then passed. Binaries and diagnostics remain ignored in `.cache/library-e2e/` and are not distributed.
+
+GitHub issues #6 and #10 are closed. The feature branch starts from fetched develop `051475a`. Project status updates are unavailable because the CLI token lacks `read:project`; no issue is closed before merge. Work is committed locally; pushing/opening a PR awaits an owner request.
