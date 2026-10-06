@@ -42,7 +42,8 @@ export function LibrarySortControl({
                 key={sort}
                 accessibilityRole="radio"
                 accessibilityLabel={label}
-                accessibilityState={{ checked: value === sort }}
+                accessibilityState={{ checked: value === sort, disabled }}
+                disabled={disabled}
                 onPress={() => {
                   onChange(sort);
                   setExpanded(false);

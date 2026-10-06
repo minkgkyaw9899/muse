@@ -645,3 +645,18 @@ it('allows selection directly in the native Search collection', async () => {
   expect(screen.getByRole('checkbox', { name: /Field Notes/ })).toBeChecked();
   expect(screen.queryByRole('checkbox', { name: /Hidden/ })).toBeNull();
 });
+
+it('disables expanded sort choices when the Library becomes unavailable', async () => {
+  const library = collection();
+  await render(providers(<LibraryScreen library={library} />));
+  await screen.findByText('Field Notes');
+  await fireEvent.press(screen.getByRole('button', { name: 'Sort publications' }));
+  library.list = async () => {
+    throw new Error('Unavailable');
+  };
+  await act(async () => {
+    await library.rename(fieldNotes.id, fieldNotes.title);
+  });
+  await screen.findByRole('button', { name: 'Retry loading Library' });
+  expect(screen.getByRole('radio', { name: 'Title A–Z' })).toBeDisabled();
+});

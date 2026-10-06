@@ -24,13 +24,11 @@ export type PublicationAction = {
 export function PublicationActionDialog({
   action,
   onDismiss,
-  onRename,
-  onRemove,
+  onSubmit,
 }: {
   action: PublicationAction;
   onDismiss(): void;
-  onRename(title: string): Promise<RenameResult>;
-  onRemove(): Promise<RemovalResult>;
+  onSubmit(title: string): Promise<RenameResult | RemovalResult>;
 }) {
   const { tokens } = useAppTheme();
   const countLabel =
@@ -55,7 +53,7 @@ export function PublicationActionDialog({
     setPending(true);
     setError(null);
     try {
-      const result = action.kind === 'rename' ? await onRename(draft) : await onRemove();
+      const result = await onSubmit(draft);
       if (!active.current) return;
       if (result.status === 'error') setError(result.error.message);
       else onDismiss();

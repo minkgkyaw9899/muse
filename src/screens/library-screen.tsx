@@ -249,6 +249,16 @@ export function LibraryScreen({
     });
   }, [visibleIds]);
 
+  function applyCommittedRemovals(ids: ReadonlySet<string>) {
+    readVersion.current += 1;
+    for (const id of ids) {
+      pendingImportedIds.current.delete(id);
+      if (controller.current) removedDuringImport.current.add(id);
+    }
+    setPublications((current) => current.filter((row) => !ids.has(row.id)));
+    reload.current();
+  }
+
   async function removeSelection() {
     if (!confirmation || removing)
       return {
@@ -262,12 +272,7 @@ export function LibraryScreen({
         const removed = new Set(
           results.filter(({ result }) => result.status === 'removed').map(({ id }) => id),
         );
-        readVersion.current += 1;
-        for (const id of removed) {
-          pendingImportedIds.current.delete(id);
-          if (controller.current) removedDuringImport.current.add(id);
-        }
-        setPublications((current) => current.filter((row) => !removed.has(row.id)));
+        applyCommittedRemovals(removed);
         setSelected(
           new Set(results.filter(({ result }) => result.status === 'error').map(({ id }) => id)),
         );
@@ -285,7 +290,6 @@ export function LibraryScreen({
             (cleanupPending ? ' Reopen Muse to finish freeing storage.' : ''),
         });
         if (!failed.length) setSelecting(false);
-        reload.current();
       }
       return { status: 'removed' as const, cleanupPending: false };
     } finally {
@@ -532,11 +536,7 @@ export function LibraryScreen({
         <PublicationActionDialog
           action={{ kind: 'remove', publication: confirmation[0], count: confirmation.length }}
           onDismiss={() => setConfirmation(null)}
-          onRename={async () => ({
-            status: 'error',
-            error: { category: 'invalidTitle', message: 'Use the publication menu to rename.' },
-          })}
-          onRemove={removeSelection}
+          onSubmit={removeSelection}
         />
       ) : null}
       {action ? (
@@ -544,27 +544,23 @@ export function LibraryScreen({
           key={`${action.kind}-${action.publication.id}`}
           action={action}
           onDismiss={() => setAction(null)}
-          onRename={async (draft) => {
-            const result = await library.rename(action.publication.id, draft);
-            if (mounted.current && result.status === 'saved') {
-              readVersion.current += 1;
-              setPublications((current) =>
-                current.map((row) => (row.id === result.publication.id ? result.publication : row)),
-              );
-              reload.current();
+          onSubmit={async (draft) => {
+            if (action.kind === 'rename') {
+              const result = await library.rename(action.publication.id, draft);
+              if (mounted.current && result.status === 'saved') {
+                readVersion.current += 1;
+                setPublications((current) =>
+                  current.map((row) =>
+                    row.id === result.publication.id ? result.publication : row,
+                  ),
+                );
+                reload.current();
+              }
+              return result;
             }
-            return result;
-          }}
-          onRemove={async () => {
             const result = await library.remove(action.publication.id);
             if (mounted.current && result.status === 'removed') {
-              readVersion.current += 1;
-              pendingImportedIds.current.delete(action.publication.id);
-              if (controller.current) removedDuringImport.current.add(action.publication.id);
-              setPublications((current) =>
-                current.filter((row) => row.id !== action.publication.id),
-              );
-              reload.current();
+              applyCommittedRemovals(new Set([action.publication.id]));
               if (result.cleanupPending)
                 toast.show({
                   kind: 'error',
