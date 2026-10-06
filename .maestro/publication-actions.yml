@@ -41,7 +41,7 @@ appId: com.minkgkyaw9899.muse
 - assertVisible: Your library is empty
 # The provider's original is intact and can be imported again after confirmed removal.
 - tapOn: Import PDFs
-- tapOn: Browse
+- runFlow: helpers/browse-files.yml
 - runFlow:
     when:
       notVisible:

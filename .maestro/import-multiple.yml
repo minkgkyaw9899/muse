@@ -4,7 +4,7 @@ appId: com.minkgkyaw9899.muse
     clearState: true
 - assertVisible: 'Your library is empty'
 - tapOn: 'Import PDFs'
-- tapOn: 'Browse'
+- runFlow: helpers/browse-files.yml
 - runFlow:
     when:
       notVisible:
