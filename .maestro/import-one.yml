@@ -4,8 +4,7 @@ appId: com.minkgkyaw9899.muse
     clearState: true
 - assertVisible: 'Your library is empty'
 - tapOn: 'Import PDFs'
-- assertVisible: 'Browse'
-- tapOn: 'Browse'
+- runFlow: helpers/browse-files.yml
 - runFlow:
     when:
       notVisible:
@@ -40,7 +39,7 @@ appId: com.minkgkyaw9899.muse
 - launchApp
 - assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
 - tapOn: 'Import PDFs'
-- tapOn: 'Browse'
+- runFlow: helpers/browse-files.yml
 - runFlow:
     when:
       notVisible:

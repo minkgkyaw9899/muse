@@ -14,6 +14,12 @@ Lefthook runs Biome on staged JavaScript, TypeScript, JSON, and CSS before each 
 
 Jest uses the SDK 57 `jest-expo` preset. React Native Testing Library 14 uses async `render`, so await the result before querying. Keep assertions on visible content or accessible controls. The UI tests cover shared primitives and Library import states. Maestro's smoke flow walks the three-tab shell and Appearance; `import-one.yml` selects the committed two-page PDF through Files, checks its accessible row, and checks persistence after relaunch and native Search title filtering/clearing.
 
+## Favorites behavior
+
+`tests/integration/publication-library.test.ts` covers favorite persistence, unfavorite, missing publications, safe failed writes and durable change subscriptions through the Library interface. `publication-favorites-storage.test.ts` runs the production SQLite repository against the host Node SQLite engine (Node 22.13+ required by Expo SDK 57) for fresh and schema-1 databases, rollback/retry, reopening after a failed connection attempt, duplicate retention and failed metadata writes. No PDF pages are materialized.
+
+`tests/ui/publication-favorites.test.tsx` covers accessible actions shared across Library and Favorites, displayed-title matching, no-match/loading/error states, save failure recovery and suppression of stale collection reads. The native menu is a declared UI presentation adapter: Jest exercises its complete web contract; installed-app tests verify the Expo native menu. `.maestro/favorites.yml` exercises the real picker/import, favorite/relaunch, Favorites search, unfavorite and cross-tab consistency on an installed app.
+
 ## Local iOS E2E
 
 Install Maestro CLI 2.10.0 and Java 17 or newer using the [official Maestro instructions](https://docs.maestro.dev/maestro-cli/how-to-install-maestro-cli). Build the pinned MuPDF framework for this local test build, then target a booted arm64 iOS simulator. The temporary Xcode configuration is necessary because the framework has an arm64 simulator slice while Xcode's Release build otherwise asks for arm64 and x86_64:
@@ -120,3 +126,11 @@ Tab minimization has no automated assertion. On an iOS 26 simulator, give the Li
 `LegendList` renders rows only after it measures a layout, which React Native Testing Library never provides, so `jest.setup.ts` replaces `@legendapp/list/react-native` with a shim that keeps its public contract (data, `renderItem`, header, empty state, footer). Rendered tests therefore verify each screen's output, not the virtualizer; scrolling, recycling and tab minimization are verified only on the simulator.
 
 `src/theme/glass-capability.ts` is a declared seam, as `docs/architecture.md` describes: rendered UI tests fake `detectTabBarKind` to exercise the complete non-glass design, because Jest otherwise reports glass. The glass branches (tab bar, header actions, toast) are therefore verified only on an iOS 26 simulator.
+
+## Single-publication actions
+
+All Files picker entries use `helpers/browse-files.yml` to wait up to 60 seconds for Browse before tapping it. CI run 37393962839 failed its first default-timeout Browse assertion on a cold simulator; the captured hierarchy later showed Files Recents and Browse, and the later publication-actions flow passed. This helper synchronizes with system picker readiness without delaying a ready picker, retrying whole flows or changing durable import assertions. CI recovery requires all required checks to pass on the final PR head, even when the local simulator suite passes.
+
+The iOS publication menu keeps its symbol trigger and publication-specific accessibility label in SwiftUI. CI run 37169460873 exposed a missing label after rename when the trigger was a React Native view hosted inside SwiftUI; Jest's web adapter cannot reproduce that native failure, so the installed rename-to-menu assertion is its regression test. `helpers/open-selection.yml` waits up to 30 seconds for Files to dismiss after each of three bounded attempts, retains the dismissal assertion, and leaves durable import-result assertions to its callers. Animation settling alone does not establish picker dismissal.
+
+The Library integration tests cover title-only rename, blank/failed saves, isolated removal and cleanup recovery. The production SQLite tests cover schemas 0, 1 and 2 migrating to 3, removal rollback, durable cleanup records and actual host source/cache deletion with the production file adapter. Rendered tests cover shared menus, rename drafts and pending/error recovery, identified confirmation, cancellation and synchronization. `.maestro/publication-actions.yml` includes Favorites acceptance, then renames via the native menu, checks title search and relaunch, cancels one removal, confirms it, relaunches and reimports the intact provider original.

@@ -14,6 +14,7 @@ export type Publication = {
   importedAt: string;
   lastOpenedAt: string | null;
   readingPosition: null;
+  isFavorite: boolean;
   /** Path relative to Muse's owned publication directory. Never a picker URL. */
   ownedPath: string;
 };
@@ -29,6 +30,23 @@ export type ImportResult =
         message: string;
       };
     };
+
+export type FavoriteChangeResult =
+  | { status: 'saved'; publication: Publication }
+  | { status: 'error'; error: { category: 'storage' | 'notFound'; message: string } };
+
+export type RenameResult =
+  | { status: 'saved'; publication: Publication }
+  | {
+      status: 'error';
+      error: { category: 'storage' | 'notFound' | 'invalidTitle'; message: string };
+    };
+
+export type PendingPublicationRemoval = Pick<Publication, 'id' | 'ownedPath'>;
+export type PublicationChange = { kind: 'changed' } | { kind: 'removed'; id: string };
+export type RemovalResult =
+  | { status: 'removed'; cleanupPending: boolean }
+  | { status: 'error'; error: { category: 'storage' | 'notFound'; message: string } };
 
 export type PickedPublication = {
   uri: string;
@@ -54,6 +72,8 @@ export type PublicationLibraryDependencies = {
     ): Promise<Required<OwnedFile>>;
     promote(staged: Required<OwnedFile>, publicationId: string): Promise<OwnedFile>;
     remove(relativePath: string): Promise<void>;
+    /** Idempotently deletes this publication's source and derived cache only. */
+    removePublication(publication: PendingPublicationRemoval): Promise<void>;
     reconcile(referencedPaths: readonly string[]): Promise<void>;
   };
   repository: {
@@ -61,6 +81,13 @@ export type PublicationLibraryDependencies = {
     list(): Promise<Publication[]>;
     findByFingerprint(fingerprint: string): Promise<Publication | null>;
     insert(publication: Publication): Promise<void>;
+    /** Atomically saves and returns committed metadata; null means the publication is absent. */
+    setFavorite(id: string, isFavorite: boolean): Promise<Publication | null>;
+    rename(id: string, title: string): Promise<Publication | null>;
+    /** Atomically removes the visible row and records durable cleanup ownership. */
+    beginRemoval(id: string): Promise<PendingPublicationRemoval | null>;
+    listPendingRemovals(): Promise<PendingPublicationRemoval[]>;
+    finishRemoval(id: string): Promise<void>;
   };
   renderer: DocumentRenderer;
   clock: { now(): Date };
@@ -87,6 +114,13 @@ export type BatchImportResult =
 
 export type PublicationLibrary = {
   list(): Promise<Publication[]>;
+  /** Resolves only after the choice is durable; failures contain safe reader-facing guidance. */
+  setFavorite(id: string, isFavorite: boolean): Promise<FavoriteChangeResult>;
+  rename(id: string, title: string): Promise<RenameResult>;
+  /** Call only after the reader confirms this identified publication. */
+  remove(id: string): Promise<RemovalResult>;
+  /** Observes committed publication changes. The returned function removes the observer. */
+  subscribe(listener: (change?: PublicationChange) => void): () => void;
   importOne(options?: { signal?: AbortSignal }): Promise<ImportResult>;
   importMany(options?: {
     signal?: AbortSignal;
@@ -179,13 +213,46 @@ export function createPublicationLibrary({
   let ready: Promise<void> | null = null;
   let importing = false;
   let admission = Promise.resolve();
+  const listeners = new Set<(change?: PublicationChange) => void>();
+
+  function publishChange(change: PublicationChange = { kind: 'changed' }): void {
+    for (const listener of [...listeners]) {
+      try {
+        listener(change);
+      } catch {
+        // Observers cannot change a committed publication's outcome.
+      }
+    }
+  }
+
+  async function acquireMetadataWrite(): Promise<() => void> {
+    const previous = admission;
+    let release!: () => void;
+    admission = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    return release;
+  }
 
   function ensureReady(): Promise<void> {
     if (!ready) {
       ready = (async () => {
         await repository.initialize();
+        const pendingRemovals = await repository.listPendingRemovals();
+        for (const pending of pendingRemovals) {
+          try {
+            await fileStore.removePublication(pending);
+            await repository.finishRemoval(pending.id);
+          } catch {
+            // A still-owned pending source will be retried next launch; it cannot block the Library.
+          }
+        }
         const publications = await repository.list();
-        await fileStore.reconcile(publications.map((publication) => publication.ownedPath));
+        await fileStore.reconcile([
+          ...publications.map((publication) => publication.ownedPath),
+          ...pendingRemovals.map((pending) => pending.ownedPath),
+        ]);
       })().catch((error: unknown) => {
         ready = null;
         throw error;
@@ -256,12 +323,7 @@ export function createPublicationLibrary({
             },
           };
         }
-        const previous = admission;
-        let release!: () => void;
-        admission = new Promise<void>((resolve) => {
-          release = resolve;
-        });
-        await previous;
+        const release = await acquireMetadataWrite();
         try {
           if (options?.signal?.aborted) return { status: 'cancelled' };
           const existing = await repository.findByFingerprint(inspection.inspection.fingerprint);
@@ -280,6 +342,7 @@ export function createPublicationLibrary({
             importedAt: clock.now().toISOString(),
             lastOpenedAt: null,
             readingPosition: null,
+            isFavorite: false,
             ownedPath: pending.promoted.relativePath,
           };
           try {
@@ -298,12 +361,14 @@ export function createPublicationLibrary({
               concurrent.ownedPath === publication.ownedPath
             ) {
               pending.promoted = undefined;
+              publishChange();
               return { status: 'imported', publication: concurrent };
             }
             if (concurrent) return { status: 'duplicate', publication: concurrent };
             throw error;
           }
           pending.promoted = undefined;
+          publishChange();
           return { status: 'imported', publication };
         } finally {
           release();
@@ -344,6 +409,108 @@ export function createPublicationLibrary({
     async list() {
       await ensureReady();
       return repository.list();
+    },
+    async setFavorite(id, isFavorite) {
+      const release = await acquireMetadataWrite();
+      try {
+        await ensureReady();
+        const publication = await repository.setFavorite(id, isFavorite);
+        if (!publication) {
+          return {
+            status: 'error',
+            error: {
+              category: 'notFound',
+              message: 'This publication is no longer in your Library.',
+            },
+          };
+        }
+        publishChange();
+        return { status: 'saved', publication };
+      } catch {
+        return {
+          status: 'error',
+          error: {
+            category: 'storage',
+            message: 'Muse could not save this favorite. Please try again.',
+          },
+        };
+      } finally {
+        release();
+      }
+    },
+    async rename(id, title) {
+      const displayedTitle = title.trim();
+      if (!displayedTitle) {
+        return {
+          status: 'error',
+          error: { category: 'invalidTitle', message: 'Enter a title for this publication.' },
+        };
+      }
+      const release = await acquireMetadataWrite();
+      try {
+        await ensureReady();
+        const publication = await repository.rename(id, displayedTitle);
+        if (!publication)
+          return {
+            status: 'error',
+            error: {
+              category: 'notFound',
+              message: 'This publication is no longer in your Library.',
+            },
+          };
+        publishChange();
+        return { status: 'saved', publication };
+      } catch {
+        return {
+          status: 'error',
+          error: {
+            category: 'storage',
+            message: 'Muse could not rename this publication. Please try again.',
+          },
+        };
+      } finally {
+        release();
+      }
+    },
+    async remove(id) {
+      const release = await acquireMetadataWrite();
+      try {
+        await ensureReady();
+        const pending = await repository.beginRemoval(id);
+        if (!pending)
+          return {
+            status: 'error',
+            error: {
+              category: 'notFound',
+              message: 'This publication is no longer in your Library.',
+            },
+          };
+        publishChange({ kind: 'removed', id });
+        try {
+          await fileStore.removePublication(pending);
+          await repository.finishRemoval(id);
+          return { status: 'removed', cleanupPending: false };
+        } catch {
+          // The committed removal stays removed; startup resumes its durable cleanup record.
+          return { status: 'removed', cleanupPending: true };
+        }
+      } catch {
+        return {
+          status: 'error',
+          error: {
+            category: 'storage',
+            message: 'Muse could not remove this publication. Please try again.',
+          },
+        };
+      } finally {
+        release();
+      }
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
     },
     async importOne(options) {
       if (importing) return busy();

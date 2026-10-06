@@ -60,3 +60,7 @@ jest.mock('@legendapp/list/react-native', () => {
       ),
   };
 });
+// Native menus are a platform presentation adapter; rendered tests exercise its web contract.
+jest.mock('@/features/library/publication-menu', () =>
+  jest.requireActual('@/features/library/publication-menu.tsx'),
+);

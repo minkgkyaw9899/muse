@@ -11,10 +11,13 @@ const picked = {
 function createAdapters() {
   const rows = new Map<string, Publication>();
   const files = new Set<string>();
+  const caches = new Set<string>();
+  const removals = new Map<string, Pick<Publication, 'id' | 'ownedPath'>>();
   const released: string[] = [];
   return {
     rows,
     files,
+    caches,
     released,
     picker: {
       pickMany: async () => [],
@@ -45,6 +48,10 @@ function createAdapters() {
       remove: async (path: string) => {
         files.delete(path);
       },
+      removePublication: async ({ id, ownedPath }: Pick<Publication, 'id' | 'ownedPath'>) => {
+        files.delete(ownedPath);
+        caches.delete(id);
+      },
       reconcile: async (keep: readonly string[]) => {
         for (const path of files) if (!keep.includes(path)) files.delete(path);
       },
@@ -56,6 +63,32 @@ function createAdapters() {
         [...rows.values()].find((row) => row.fingerprint === fingerprint) ?? null,
       insert: async (row: Publication) => {
         rows.set(row.id, row);
+      },
+      setFavorite: async (id: string, isFavorite: boolean) => {
+        const publication = rows.get(id);
+        if (!publication) return null;
+        const saved = { ...publication, isFavorite };
+        rows.set(id, saved);
+        return saved;
+      },
+      rename: async (id: string, title: string) => {
+        const publication = rows.get(id);
+        if (!publication) return null;
+        const saved = { ...publication, title };
+        rows.set(id, saved);
+        return saved;
+      },
+      beginRemoval: async (id: string) => {
+        const publication = rows.get(id);
+        if (!publication) return removals.get(id) ?? null;
+        const pending = { id, ownedPath: publication.ownedPath };
+        removals.set(id, pending);
+        rows.delete(id);
+        return pending;
+      },
+      listPendingRemovals: async () => [...removals.values()],
+      finishRemoval: async (id: string) => {
+        removals.delete(id);
       },
     },
     renderer: {
@@ -79,6 +112,268 @@ function createAdapters() {
 }
 
 describe('PublicationLibrary', () => {
+  it('rejects blank titles and retains the saved title when rename storage fails', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    await library.importOne();
+    await expect(library.rename('publication-1', '  ')).resolves.toMatchObject({
+      status: 'error',
+      error: { category: 'invalidTitle' },
+    });
+    adapters.repository.rename = async () => {
+      throw new Error('private filename');
+    };
+    await expect(library.rename('publication-1', 'Revised')).resolves.toEqual({
+      status: 'error',
+      error: {
+        category: 'storage',
+        message: 'Muse could not rename this publication. Please try again.',
+      },
+    });
+    expect(await library.list()).toEqual([expect.objectContaining({ title: 'Field Notes' })]);
+  });
+
+  it('keeps the source, cache and row when removal cannot commit', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    await library.importOne();
+    adapters.caches.add('publication-1');
+    adapters.repository.beginRemoval = async () => {
+      throw new Error('private filename');
+    };
+    const changed = jest.fn();
+    library.subscribe(changed);
+    await expect(library.remove('publication-1')).resolves.toMatchObject({
+      status: 'error',
+      error: { category: 'storage' },
+    });
+    expect(await library.list()).toEqual([expect.objectContaining({ id: 'publication-1' })]);
+    expect(adapters.files).toEqual(new Set(['publications/publication-1.pdf']));
+    expect(adapters.caches).toEqual(new Set(['publication-1']));
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it('keeps unrelated publications usable when interrupted cleanup still fails on relaunch', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    await library.importOne();
+    const [original] = await library.list();
+    const other = { ...original, id: 'other', ownedPath: 'publications/other.pdf' };
+    adapters.rows.set(other.id, other);
+    adapters.files.add(other.ownedPath);
+    adapters.fileStore.removePublication = async () => {
+      throw new Error('source temporarily busy');
+    };
+    await expect(library.remove(original.id)).resolves.toEqual({
+      status: 'removed',
+      cleanupPending: true,
+    });
+    const relaunched = createPublicationLibrary(adapters);
+    await expect(relaunched.list()).resolves.toEqual([other]);
+    await expect(relaunched.rename(other.id, 'Still available')).resolves.toMatchObject({
+      status: 'saved',
+    });
+    expect(adapters.files).toEqual(
+      new Set(['publications/publication-1.pdf', 'publications/other.pdf']),
+    );
+  });
+
+  it('removes only the identified publication and recovers interrupted file cleanup on relaunch', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    await library.importOne();
+    const [original] = await library.list();
+    const other = { ...original, id: 'other', ownedPath: 'publications/other.pdf' };
+    adapters.rows.set(other.id, other);
+    adapters.files.add(other.ownedPath);
+    adapters.caches.add(original.id);
+    adapters.caches.add(other.id);
+    const cleanup = adapters.fileStore.removePublication;
+    adapters.fileStore.removePublication = async () => {
+      throw new Error('interrupted');
+    };
+    const changed = jest.fn();
+    library.subscribe(changed);
+    await expect(library.remove(original.id)).resolves.toEqual({
+      status: 'removed',
+      cleanupPending: true,
+    });
+    expect(await library.list()).toEqual([other]);
+    expect(changed).toHaveBeenCalledTimes(1);
+    adapters.fileStore.removePublication = cleanup;
+    expect(await createPublicationLibrary(adapters).list()).toEqual([other]);
+    expect(adapters.files).toEqual(new Set(['publications/other.pdf']));
+    expect(adapters.caches).toEqual(new Set(['other']));
+    await expect(library.remove('missing')).resolves.toMatchObject({
+      status: 'error',
+      error: { category: 'notFound' },
+    });
+  });
+
+  it('renames the displayed title durably while retaining its source identity and favorite', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    await library.importOne();
+    await library.setFavorite('publication-1', true);
+    const [before] = await library.list();
+    const changed = jest.fn();
+    library.subscribe(changed);
+    await expect(library.rename('publication-1', '  Research notes  ')).resolves.toEqual({
+      status: 'saved',
+      publication: { ...before, title: 'Research notes' },
+    });
+    expect(await createPublicationLibrary(adapters).list()).toEqual([
+      { ...before, title: 'Research notes' },
+    ]);
+    expect(adapters.files).toEqual(new Set(['publications/publication-1.pdf']));
+    expect(changed).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps concurrent favorite choices in request order when the first durable write is slow', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    await library.importOne();
+    const save = adapters.repository.setFavorite;
+    let finishFirst!: () => void;
+    const choices: boolean[] = [];
+    adapters.repository.setFavorite = async (id, isFavorite) => {
+      choices.push(isFavorite);
+      if (choices.length === 1) {
+        await new Promise<void>((resolve) => {
+          finishFirst = resolve;
+        });
+      }
+      return save(id, isFavorite);
+    };
+    const first = library.setFavorite('publication-1', true);
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    const second = library.setFavorite('publication-1', false);
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    finishFirst();
+    await expect(first).resolves.toMatchObject({
+      status: 'saved',
+      publication: { isFavorite: true },
+    });
+    await expect(second).resolves.toMatchObject({
+      status: 'saved',
+      publication: { isFavorite: false },
+    });
+    expect(await library.list()).toEqual([expect.objectContaining({ isFavorite: false })]);
+  });
+
+  it('keeps durable favorite state and gives safe recovery guidance when writes fail', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    await library.importOne();
+    await library.setFavorite('publication-1', true);
+    const changed = jest.fn();
+    library.subscribe(changed);
+    adapters.repository.setFavorite = async () => {
+      throw new Error('private path file:///reader/Notes.pdf');
+    };
+    await expect(library.setFavorite('publication-1', false)).resolves.toEqual({
+      status: 'error',
+      error: {
+        category: 'storage',
+        message: 'Muse could not save this favorite. Please try again.',
+      },
+    });
+    expect(await createPublicationLibrary(adapters).list()).toEqual([
+      expect.objectContaining({ isFavorite: true }),
+    ]);
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it('reports a missing publication without creating a favorite or publishing a change', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    const changed = jest.fn();
+    library.subscribe(changed);
+    await expect(library.setFavorite('missing', true)).resolves.toEqual({
+      status: 'error',
+      error: { category: 'notFound', message: 'This publication is no longer in your Library.' },
+    });
+    expect(await library.list()).toEqual([]);
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it('publishes new imports after metadata commits while duplicates retain the saved favorite', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    const snapshots: Promise<Publication[]>[] = [];
+    library.subscribe(() => {
+      throw new Error('Disposed screen');
+    });
+    library.subscribe(() => {
+      snapshots.push(library.list());
+    });
+    const imported = await library.importOne();
+    expect(imported.status).toBe('imported');
+    expect(await Promise.all(snapshots)).toEqual([
+      [expect.objectContaining({ id: 'publication-1', isFavorite: false })],
+    ]);
+    await library.setFavorite('publication-1', true);
+    expect(await library.importOne()).toMatchObject({
+      status: 'duplicate',
+      publication: { id: 'publication-1', isFavorite: true },
+    });
+    expect(snapshots).toHaveLength(2);
+  });
+
+  it('notifies observers only after favorite writes commit and isolates disposed observers', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    await library.importOne();
+    const snapshots: Promise<Publication[]>[] = [];
+    library.subscribe(() => {
+      throw new Error('Disposed screen');
+    });
+    const unsubscribe = library.subscribe(() => {
+      snapshots.push(library.list());
+    });
+    const save = adapters.repository.setFavorite;
+    let finish!: () => void;
+    adapters.repository.setFavorite = async (...args) => {
+      await new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      return save(...args);
+    };
+    const pending = library.setFavorite('publication-1', true);
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    expect(snapshots).toEqual([]);
+    finish();
+    await expect(pending).resolves.toMatchObject({
+      status: 'saved',
+      publication: { isFavorite: true },
+    });
+    expect(await Promise.all(snapshots)).toEqual([[expect.objectContaining({ isFavorite: true })]]);
+
+    unsubscribe();
+    adapters.repository.setFavorite = save;
+    await library.setFavorite('publication-1', false);
+    expect(snapshots).toHaveLength(1);
+    expect(await createPublicationLibrary(adapters).list()).toEqual([
+      expect.objectContaining({ isFavorite: false }),
+    ]);
+  });
+
+  it('persists a publication favorite independently of reading metadata after relaunch', async () => {
+    const adapters = createAdapters();
+    const library = createPublicationLibrary(adapters);
+    const imported = await library.importOne();
+    expect(imported).toMatchObject({ status: 'imported', publication: { isFavorite: false } });
+    if (imported.status !== 'imported') throw new Error('Expected import to succeed');
+
+    expect(await library.setFavorite(imported.publication.id, true)).toEqual({
+      status: 'saved',
+      publication: { ...imported.publication, isFavorite: true },
+    });
+    expect(await createPublicationLibrary(adapters).list()).toEqual([
+      { ...imported.publication, isFavorite: true },
+    ]);
+  });
+
   it('imports an app-owned PDF and lists its durable metadata after relaunch', async () => {
     const adapters = createAdapters();
     const library = createPublicationLibrary(adapters);
@@ -275,6 +570,7 @@ it('treats a unique-fingerprint insert race as a duplicate and removes its own c
     importedAt: '2026-09-30T01:00:00.000Z',
     lastOpenedAt: null,
     readingPosition: null,
+    isFavorite: true,
     ownedPath: 'publications/from-another-import.pdf',
   };
   adapters.repository.insert = async () => {
