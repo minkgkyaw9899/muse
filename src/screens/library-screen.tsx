@@ -259,7 +259,7 @@ export function LibraryScreen({
     reload.current();
   }
 
-  async function removeSelection() {
+  async function removeSelection(_draft: string, signal: AbortSignal) {
     if (!confirmation || removing)
       return {
         status: 'error' as const,
@@ -267,15 +267,19 @@ export function LibraryScreen({
       };
     setRemoving(true);
     try {
-      const results = await library.removeMany(confirmation.map((row) => row.id));
+      const results = await library.removeMany(
+        confirmation.map((row) => row.id),
+        { signal },
+      );
       if (mounted.current) {
         const removed = new Set(
           results.filter(({ result }) => result.status === 'removed').map(({ id }) => id),
         );
         applyCommittedRemovals(removed);
         setSelected(
-          new Set(results.filter(({ result }) => result.status === 'error').map(({ id }) => id)),
+          new Set(confirmation.filter((row) => !removed.has(row.id)).map((row) => row.id)),
         );
+        const unprocessed = confirmation.length - results.length;
         const failed = results.filter(({ result }) => result.status === 'error');
         const cleanupPending = results.some(
           ({ result }) => result.status === 'removed' && result.cleanupPending,
@@ -287,9 +291,10 @@ export function LibraryScreen({
             (failed.length
               ? ` ${failed.length} could not be removed. They remain selected; try again.`
               : '') +
+            (unprocessed ? ` ${unprocessed} not processed. They remain selected.` : '') +
             (cleanupPending ? ' Reopen Muse to finish freeing storage.' : ''),
         });
-        if (!failed.length) setSelecting(false);
+        if (!failed.length && !unprocessed) setSelecting(false);
       }
       return { status: 'removed' as const, cleanupPending: false };
     } finally {

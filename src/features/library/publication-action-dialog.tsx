@@ -28,7 +28,7 @@ export function PublicationActionDialog({
 }: {
   action: PublicationAction;
   onDismiss(): void;
-  onSubmit(title: string): Promise<RenameResult | RemovalResult>;
+  onSubmit(title: string, signal: AbortSignal): Promise<RenameResult | RemovalResult>;
 }) {
   const { tokens } = useAppTheme();
   const countLabel =
@@ -39,10 +39,13 @@ export function PublicationActionDialog({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const active = useRef(true);
+  const controller = useRef<AbortController | null>(null);
+  const cancellable = action.kind === 'remove' && action.count !== undefined;
   useEffect(() => {
     active.current = true;
     return () => {
       active.current = false;
+      controller.current?.abort();
     };
   }, []);
   useEffect(() => {
@@ -53,7 +56,8 @@ export function PublicationActionDialog({
     setPending(true);
     setError(null);
     try {
-      const result = await onSubmit(draft);
+      controller.current = new AbortController();
+      const result = await onSubmit(draft, controller.current.signal);
       if (!active.current) return;
       if (result.status === 'error') setError(result.error.message);
       else onDismiss();
@@ -61,6 +65,7 @@ export function PublicationActionDialog({
       if (active.current)
         setError(`Muse could not ${action.kind} this publication. Please try again.`);
     } finally {
+      controller.current = null;
       if (active.current) setPending(false);
     }
   }
@@ -69,7 +74,8 @@ export function PublicationActionDialog({
       visible
       animationType="none"
       onRequestClose={() => {
-        if (!pending) onDismiss();
+        if (pending && cancellable) controller.current?.abort();
+        else if (!pending) onDismiss();
       }}
     >
       <SafeAreaView style={{ flex: 1, backgroundColor: tokens.canvas }} accessibilityViewIsModal>
@@ -154,13 +160,24 @@ export function PublicationActionDialog({
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={action.kind === 'rename' ? 'Cancel rename' : 'Cancel removal'}
-                  disabled={pending}
-                  accessibilityState={{ disabled: pending }}
-                  onPress={onDismiss}
+                  accessibilityLabel={
+                    pending && cancellable
+                      ? 'Stop removal'
+                      : action.kind === 'rename'
+                        ? 'Cancel rename'
+                        : 'Cancel removal'
+                  }
+                  disabled={pending && !cancellable}
+                  accessibilityState={{ disabled: pending && !cancellable }}
+                  onPress={() => {
+                    if (pending) controller.current?.abort();
+                    else onDismiss();
+                  }}
                   className="min-h-11 justify-center px-4 py-3"
                 >
-                  <Text className="text-accent-text text-base">Cancel</Text>
+                  <Text className="text-accent-text text-base">
+                    {pending && cancellable ? 'Stop removal' : 'Cancel'}
+                  </Text>
                 </Pressable>
               </View>
             }

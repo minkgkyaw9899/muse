@@ -766,3 +766,22 @@ it('queries a large publication collection independently of PDF page count', asy
     '09990',
   ]);
 });
+
+it('stops bulk removal between publications and preserves completed outcomes', async () => {
+  const adapters = createAdapters();
+  const library = createPublicationLibrary(adapters);
+  const imported = await library.importOne();
+  if (imported.status !== 'imported') throw new Error('Fixture import failed');
+  for (const id of ['first', 'untouched']) adapters.rows.set(id, { ...imported.publication, id });
+  const controller = new AbortController();
+  const begin = adapters.repository.beginRemoval;
+  adapters.repository.beginRemoval = async (id) => {
+    const result = await begin(id);
+    controller.abort();
+    return result;
+  };
+  const outcomes = await library.removeMany(['first', 'untouched'], { signal: controller.signal });
+  expect(outcomes.map(({ id, result }) => [id, result.status])).toEqual([['first', 'removed']]);
+  expect((await library.list()).map((row) => row.id)).toContain('untouched');
+  expect(await library.removeMany(['untouched'], { signal: controller.signal })).toEqual([]);
+});

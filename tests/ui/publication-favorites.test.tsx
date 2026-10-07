@@ -56,9 +56,12 @@ function collection(initial: Publication[] = [fieldNotes]): PublicationLibrary {
       for (const observer of observers) observer();
       return { status: 'saved', publication };
     },
-    removeMany: async function (ids) {
+    removeMany: async function (ids, { signal } = {}) {
       const results = [];
-      for (const id of new Set(ids)) results.push({ id, result: await this.remove(id) });
+      for (const id of new Set(ids)) {
+        if (signal?.aborted) break;
+        results.push({ id, result: await this.remove(id) });
+      }
       return results;
     },
     remove: async (id) => {
@@ -660,3 +663,49 @@ it('disables expanded sort choices when the Library becomes unavailable', async 
   await screen.findByRole('button', { name: 'Retry loading Library' });
   expect(screen.getByRole('radio', { name: 'Title A–Z' })).toBeDisabled();
 });
+
+it.each(['stop', 'unmount'] as const)(
+  'cancels pending bulk removal on %s without starting the next publication',
+  async (exit) => {
+    const library = collection([fieldNotes, { ...fieldNotes, id: 'other', title: 'Other Notes' }]);
+    const remove = library.remove;
+    let finishCurrent: () => void = () => {};
+    const removedIds: string[] = [];
+    library.remove = async (id) => {
+      removedIds.push(id);
+      await new Promise<void>((resolve) => {
+        finishCurrent = resolve;
+      });
+      return remove(id);
+    };
+    const rendered = await render(providers(<LibraryScreen library={library} />));
+    await screen.findByText('Field Notes');
+    await fireEvent.press(screen.getByRole('button', { name: 'Edit Library' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Select all visible publications' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Remove selected publications' }));
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Confirm removal of 2 publications' }),
+    );
+    if (exit === 'stop')
+      await fireEvent.press(screen.getByRole('button', { name: 'Stop removal' }));
+    else await rendered.unmount();
+    await act(async () => {
+      finishCurrent();
+    });
+    expect(removedIds).toEqual(['field-notes']);
+    expect((await library.list()).map((row) => row.id)).toEqual(['other']);
+    if (exit === 'stop') {
+      expect(
+        await screen.findByText('1 publication removed. 1 not processed. They remain selected.'),
+      ).toBeTruthy();
+      expect(screen.getByRole('checkbox', { name: /Other Notes/ })).toBeChecked();
+      expect(screen.queryByRole('button', { name: 'Stop removal' })).toBeNull();
+      library.remove = remove;
+      await fireEvent.press(screen.getByRole('button', { name: 'Remove selected publications' }));
+      await fireEvent.press(
+        screen.getByRole('button', { name: 'Confirm removal of 1 publication' }),
+      );
+      expect(await screen.findByText('Your library is empty')).toBeTruthy();
+    }
+  },
+);

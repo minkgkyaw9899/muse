@@ -122,8 +122,11 @@ export type PublicationLibrary = {
   rename(id: string, title: string): Promise<RenameResult>;
   /** Call only after the reader confirms this identified publication. */
   remove(id: string): Promise<RemovalResult>;
-  /** Captures the confirmed IDs; each removal commits independently and failures do not stop the batch. */
-  removeMany(ids: readonly string[]): Promise<BulkRemovalResult>;
+  /** Independent durable outcomes; abort stops before the next ID, leaving unprocessed IDs untouched. */
+  removeMany(
+    ids: readonly string[],
+    options?: { signal?: AbortSignal },
+  ): Promise<BulkRemovalResult>;
   /** Observes committed publication changes. The returned function removes the observer. */
   subscribe(listener: (change?: PublicationChange) => void): () => void;
   importOne(options?: { signal?: AbortSignal }): Promise<ImportResult>;
@@ -512,9 +515,13 @@ export function createPublicationLibrary({
         release();
       }
     },
-    async removeMany(ids) {
+    async removeMany(ids, { signal } = {}) {
       const results: BulkRemovalResult = [];
-      for (const id of new Set(ids)) results.push({ id, result: await this.remove(id) });
+      for (const id of new Set(ids)) {
+        // Finish an in-flight durable removal, but never start another after cancellation.
+        if (signal?.aborted) break;
+        results.push({ id, result: await this.remove(id) });
+      }
       return results;
     },
     subscribe(listener) {

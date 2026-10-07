@@ -16,7 +16,6 @@ export type PublicationQuery = {
 };
 
 const compareText = (left: string, right: string) => (left < right ? -1 : left > right ? 1 : 0);
-const normalizedTitle = (publication: Publication) => publication.title.toLocaleLowerCase();
 
 /** Queries a metadata snapshot without mutating it or allocating anything per PDF page. */
 export function queryPublications(
@@ -24,27 +23,31 @@ export function queryPublications(
   { search = '', sort = 'imported-desc', recentOnly = false }: PublicationQuery = {},
 ): Publication[] {
   const query = search.trim().toLocaleLowerCase();
-  const rows = publications.filter(
-    (publication) =>
-      (!recentOnly || publication.lastOpenedAt !== null) &&
-      normalizedTitle(publication).includes(query),
-  );
   const order = recentOnly ? 'opened-desc' : sort;
+  const opened = order.startsWith('opened');
+  const byTitle = order.startsWith('title');
+  const rows = publications.flatMap((publication) => {
+    if (recentOnly && publication.lastOpenedAt === null) return [];
+    const title = publication.title.toLocaleLowerCase();
+    if (!title.includes(query)) return [];
+    const date = opened ? publication.lastOpenedAt : publication.importedAt;
+    return [{ publication, title, date: date === null ? null : byTitle ? 0 : Date.parse(date) }];
+  });
   rows.sort((left, right) => {
-    const titleOrder = compareText(normalizedTitle(left), normalizedTitle(right));
-    const tie = titleOrder || compareText(left.id, right.id);
+    const titleOrder = compareText(left.title, right.title);
+    const tie = titleOrder || compareText(left.publication.id, right.publication.id);
     if (order === 'title-asc') return tie;
-    if (order === 'title-desc') return -titleOrder || compareText(left.id, right.id);
-    const opened = order.startsWith('opened');
-    const leftDate = opened ? left.lastOpenedAt : left.importedAt;
-    const rightDate = opened ? right.lastOpenedAt : right.importedAt;
+    if (order === 'title-desc')
+      return -titleOrder || compareText(left.publication.id, right.publication.id);
+    const leftDate = left.date;
+    const rightDate = right.date;
     // Unopened publications stay last even in the reverse opened order.
     if (leftDate === null || rightDate === null) {
       if (leftDate !== rightDate) return leftDate === null ? 1 : -1;
       return tie;
     }
-    const dateOrder = Date.parse(leftDate) - Date.parse(rightDate);
+    const dateOrder = leftDate - rightDate;
     return (order.endsWith('desc') ? -dateOrder : dateOrder) || tie;
   });
-  return recentOnly ? rows.slice(0, 3) : rows;
+  return (recentOnly ? rows.slice(0, 3) : rows).map((row) => row.publication);
 }
