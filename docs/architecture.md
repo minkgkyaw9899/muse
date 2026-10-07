@@ -36,6 +36,7 @@ src/ui/                  Reusable React Native Reusables/Uniwind primitives
 src/theme/               Semantic tokens and glass/fallback capability adapter
 src/testing/             Shared test adapters and fixture builders
 modules/mupdf-renderer/   Local Expo native module and vendored/native build integration
+modules/native-tab-bounce/ Guarded iOS native tab icon animation
 tests/integration/        Cross-module JavaScript integration tests
 e2e/                     Maestro flows after a runnable reader exists
 ```
@@ -112,6 +113,18 @@ Use semantic tokens (`canvas`, `surface`, `accent`, `onAccent`, `text`, `mutedTe
 Shared primitives live in `src/ui/`: `Screen` (canvas, large title, gutters), `ListRow` (icon badge, title, value, chevron or check), `IconBadge`, and `EmptyState`. Screens compose these instead of styling ad hoc. Design rules: body text uses `text` or `mutedText` (both meet 4.5:1), the accent color is reserved for icons and selection marks (3:1 non-text), rows are at least 80 points tall with an 8-point-grid inset divider, and every tab root uses the same large title.
 
 The tab bar follows the same capability rule: `resolveTabBarKind` in `src/theme/glass-capability.ts` selects the native Liquid Glass tab bar on iOS 26+ and the custom JS tab bar elsewhere.
+
+Native tab focus crosses `createNativeTabIconAnimator().select(index)` into the
+Apple-only local `native-tab-bounce` module. Initial and repeated focus do not
+animate. The native adapter finds one attached tab controller in visible windows
+of active scenes, then one visible UIImageView whose image equals the selected
+tab item's SF Symbol image. It uses public UIKit state, not private selectors,
+class names, geometry, or navigation delegate replacement. Missing or ambiguous
+targets skip the cosmetic effect; system Reduce Motion is checked live. Lookup
+work and retries are bounded, newer requests supersede pending ones, and a weak
+reference allows the previous bounce to be stopped without retaining UIKit views.
+The custom fallback bar is unchanged. The probe and native checks are documented
+in `docs/native-tab-bounce-spike.md`.
 
 `GlassSurface` is a capability adapter with two adapters:
 

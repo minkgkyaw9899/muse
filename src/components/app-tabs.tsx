@@ -1,9 +1,10 @@
 import { Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
-
+import { useRef } from 'react';
 import { detectTabBarKind } from '@/theme/glass-capability';
 import { useAppTheme } from '@/theme/theme-provider';
-
+import { bounceNativeTabIcon } from '../../modules/native-tab-bounce';
+import { createNativeTabIconAnimator } from './native-tab-icon-animator';
 import { type TabBarItem, TabBarView } from './tab-bar';
 
 const TABS: TabBarItem[] = [
@@ -38,11 +39,18 @@ const tabBarKind = detectTabBarKind();
 /** iOS 26+: native Liquid Glass tab bar. Otherwise: the custom JS tab bar with identical routes. */
 function GlassTabs() {
   const { tokens } = useAppTheme();
+  const animator = useRef(createNativeTabIconAnimator(bounceNativeTabIcon));
 
   return (
     <NativeTabs
       tintColor={tokens.accent}
       labelStyle={{ default: { color: tokens.mutedText }, selected: { color: tokens.text } }}
+      screenListeners={({ route }) => ({
+        focus: () => {
+          const index = TABS.findIndex((tab) => tab.key === route.name);
+          if (index >= 0) void animator.current.select(index);
+        },
+      })}
     >
       {TABS.map((tab) => (
         <NativeTabs.Trigger key={tab.key} name={tab.key}>
