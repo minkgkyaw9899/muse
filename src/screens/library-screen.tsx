@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
@@ -9,8 +9,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
-
 import { getAppLibrary } from '@/features/library/app-library';
+import { LibrarySortControl } from '@/features/library/library-sort-control';
 import {
   type PublicationAction,
   PublicationActionDialog,
@@ -20,6 +20,7 @@ import type {
   Publication,
   PublicationLibrary,
 } from '@/features/library/publication-library';
+import { type PublicationSort, queryPublications } from '@/features/library/publication-query';
 import { PublicationRow } from '@/features/library/publication-row';
 import { detectTabBarKind } from '@/theme/glass-capability';
 import { useAppTheme } from '@/theme/theme-provider';
@@ -46,6 +47,11 @@ export function LibraryScreen({
   const title = favoritesOnly ? 'Favorites' : 'Library';
   const { tokens } = useAppTheme();
   const toast = useToast();
+  const [sort, setSort] = useState<PublicationSort>('imported-desc');
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmation, setConfirmation] = useState<Publication[] | null>(null);
+  const [removing, setRemoving] = useState(false);
   const [searching, setSearching] = useState(false);
   const [localQuery, setLocalQuery] = useState('');
   const libraryRef = useRef<PublicationLibrary | null>(null);
@@ -218,12 +224,83 @@ export function LibraryScreen({
   }
 
   const query = (searchOnly ? searchQuery : localQuery).trim().toLocaleLowerCase();
-  const collection = favoritesOnly
-    ? publications.filter((publication) => publication.isFavorite)
-    : publications;
-  const visiblePublications = collection.filter((publication) =>
-    publication.title.toLocaleLowerCase().includes(query),
+  const collection = useMemo(
+    () =>
+      favoritesOnly ? publications.filter((publication) => publication.isFavorite) : publications,
+    [publications, favoritesOnly],
   );
+  const visiblePublications = useMemo(
+    () => queryPublications(collection, { search: query, sort }),
+    [collection, query, sort],
+  );
+  const recent = useMemo(
+    () => queryPublications(collection, { search: query, recentOnly: true }),
+    [collection, query],
+  );
+  const visibleIds = useMemo(
+    () => new Set(visiblePublications.map((row) => row.id)),
+    [visiblePublications],
+  );
+  const selectedVisible = visiblePublications.filter((row) => selected.has(row.id));
+  useEffect(() => {
+    setSelected((current) => {
+      const next = new Set([...current].filter((id) => visibleIds.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [visibleIds]);
+
+  function applyCommittedRemovals(ids: ReadonlySet<string>) {
+    readVersion.current += 1;
+    for (const id of ids) {
+      pendingImportedIds.current.delete(id);
+      if (controller.current) removedDuringImport.current.add(id);
+    }
+    setPublications((current) => current.filter((row) => !ids.has(row.id)));
+    reload.current();
+  }
+
+  async function removeSelection(_draft: string, signal: AbortSignal) {
+    if (!confirmation || removing)
+      return {
+        status: 'error' as const,
+        error: { category: 'storage' as const, message: 'Removal is already running.' },
+      };
+    setRemoving(true);
+    try {
+      const results = await library.removeMany(
+        confirmation.map((row) => row.id),
+        { signal },
+      );
+      if (mounted.current) {
+        const removed = new Set(
+          results.filter(({ result }) => result.status === 'removed').map(({ id }) => id),
+        );
+        applyCommittedRemovals(removed);
+        setSelected(
+          new Set(confirmation.filter((row) => !removed.has(row.id)).map((row) => row.id)),
+        );
+        const unprocessed = confirmation.length - results.length;
+        const failed = results.filter(({ result }) => result.status === 'error');
+        const cleanupPending = results.some(
+          ({ result }) => result.status === 'removed' && result.cleanupPending,
+        );
+        toast.show({
+          kind: failed.length || cleanupPending ? 'error' : 'success',
+          message:
+            `${removed.size} ${removed.size === 1 ? 'publication' : 'publications'} removed.` +
+            (failed.length
+              ? ` ${failed.length} could not be removed. They remain selected; try again.`
+              : '') +
+            (unprocessed ? ` ${unprocessed} not processed. They remain selected.` : '') +
+            (cleanupPending ? ' Reopen Muse to finish freeing storage.' : ''),
+        });
+        if (!failed.length && !unprocessed) setSelecting(false);
+      }
+      return { status: 'removed' as const, cleanupPending: false };
+    } finally {
+      if (mounted.current) setRemoving(false);
+    }
+  }
   // The list must be the screen's first child: iOS finds the tab's scroll view there to minimize the bar.
   return (
     <>
@@ -259,20 +336,40 @@ export function LibraryScreen({
                         label="Import PDFs"
                         hint="Add PDFs to your Library"
                         icon={{ ios: 'plus', android: 'add', web: 'add' }}
-                        disabled={loading || loadFailed || importing}
+                        disabled={loading || loadFailed || importing || selecting}
                         onPress={() => {
                           void onImport();
                         }}
                       />
                       <HeaderAction
                         label="Edit Library"
-                        hint="Library editing is coming later"
+                        hint="Select publications to remove"
                         text="Edit"
-                        disabled
+                        disabled={
+                          loading || loadFailed || importing || selecting || collection.length === 0
+                        }
+                        onPress={() => setSelecting(true)}
                       />
                     </>
                   ) : null}
                 </View>
+              </View>
+            ) : null}
+            {searchOnly ? (
+              <View className="items-end">
+                <HeaderAction
+                  label="Edit Library"
+                  hint="Select matching publications to remove"
+                  text="Edit"
+                  disabled={
+                    loading ||
+                    loadFailed ||
+                    importing ||
+                    selecting ||
+                    visiblePublications.length === 0
+                  }
+                  onPress={() => setSelecting(true)}
+                />
               </View>
             ) : null}
             {searching && !searchOnly ? (
@@ -303,6 +400,67 @@ export function LibraryScreen({
                 </Pressable>
               </View>
             ) : null}
+            {!favoritesOnly ? (
+              <LibrarySortControl
+                value={sort}
+                onChange={setSort}
+                disabled={loading || loadFailed || removing}
+              />
+            ) : null}
+            {selecting ? (
+              <View className="gap-2">
+                <Text accessibilityLiveRegion="polite" className="text-base text-text">
+                  {selectedVisible.length} selected
+                </Text>
+                <View className="flex-row flex-wrap gap-2">
+                  <HeaderAction
+                    label="Select all visible publications"
+                    text="Select all"
+                    disabled={removing || visiblePublications.length === 0}
+                    onPress={() => setSelected(new Set(visibleIds))}
+                  />
+                  <HeaderAction
+                    label="Remove selected publications"
+                    text="Remove"
+                    disabled={removing || selectedVisible.length === 0}
+                    onPress={() => setConfirmation([...selectedVisible])}
+                  />
+                  <HeaderAction
+                    label="Cancel selection"
+                    text="Cancel"
+                    disabled={removing}
+                    onPress={() => {
+                      setSelecting(false);
+                      setSelected(new Set());
+                    }}
+                  />
+                </View>
+              </View>
+            ) : null}
+            {!favoritesOnly && !searchOnly && !selecting && recent.length ? (
+              <View>
+                <Text accessibilityRole="header" className="font-semibold text-xl text-text">
+                  Recent
+                </Text>
+                {recent.map((item) => (
+                  <PublicationRow
+                    key={item.id}
+                    publication={item}
+                    saving={saving.has(item.id)}
+                    onFavorite={() => {
+                      void onFavorite(item);
+                    }}
+                    onRename={() => setAction({ kind: 'rename', publication: item })}
+                    onRemove={() => setAction({ kind: 'remove', publication: item })}
+                  />
+                ))}
+              </View>
+            ) : null}
+            {!favoritesOnly && collection.length ? (
+              <Text accessibilityRole="header" className="font-semibold text-xl text-text">
+                All publications
+              </Text>
+            ) : null}
             {message ? (
               <Text accessibilityLiveRegion="polite" className="text-base text-muted-text">
                 {message}
@@ -328,7 +486,17 @@ export function LibraryScreen({
         renderItem={({ item }) => (
           <PublicationRow
             publication={item}
-            saving={saving.has(item.id)}
+            saving={removing || saving.has(item.id)}
+            selecting={selecting}
+            selected={selected.has(item.id)}
+            onSelect={() =>
+              setSelected((current) => {
+                const next = new Set(current);
+                if (next.has(item.id)) next.delete(item.id);
+                else next.add(item.id);
+                return next;
+              })
+            }
             onFavorite={() => {
               void onFavorite(item);
             }}
@@ -369,32 +537,35 @@ export function LibraryScreen({
           ) : null
         }
       />
+      {confirmation?.[0] ? (
+        <PublicationActionDialog
+          action={{ kind: 'remove', publication: confirmation[0], count: confirmation.length }}
+          onDismiss={() => setConfirmation(null)}
+          onSubmit={removeSelection}
+        />
+      ) : null}
       {action ? (
         <PublicationActionDialog
           key={`${action.kind}-${action.publication.id}`}
           action={action}
           onDismiss={() => setAction(null)}
-          onRename={async (draft) => {
-            const result = await library.rename(action.publication.id, draft);
-            if (mounted.current && result.status === 'saved') {
-              readVersion.current += 1;
-              setPublications((current) =>
-                current.map((row) => (row.id === result.publication.id ? result.publication : row)),
-              );
-              reload.current();
+          onSubmit={async (draft) => {
+            if (action.kind === 'rename') {
+              const result = await library.rename(action.publication.id, draft);
+              if (mounted.current && result.status === 'saved') {
+                readVersion.current += 1;
+                setPublications((current) =>
+                  current.map((row) =>
+                    row.id === result.publication.id ? result.publication : row,
+                  ),
+                );
+                reload.current();
+              }
+              return result;
             }
-            return result;
-          }}
-          onRemove={async () => {
             const result = await library.remove(action.publication.id);
             if (mounted.current && result.status === 'removed') {
-              readVersion.current += 1;
-              pendingImportedIds.current.delete(action.publication.id);
-              if (controller.current) removedDuringImport.current.add(action.publication.id);
-              setPublications((current) =>
-                current.filter((row) => row.id !== action.publication.id),
-              );
-              reload.current();
+              applyCommittedRemovals(new Set([action.publication.id]));
               if (result.cleanupPending)
                 toast.show({
                   kind: 'error',

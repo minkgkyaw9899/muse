@@ -3,6 +3,7 @@ import type {
   InspectionResult,
   RendererErrorCategory,
 } from '@/domain/document-renderer';
+import { type PublicationQuery, queryPublications } from './publication-query';
 
 export type Publication = {
   id: string;
@@ -47,6 +48,8 @@ export type PublicationChange = { kind: 'changed' } | { kind: 'removed'; id: str
 export type RemovalResult =
   | { status: 'removed'; cleanupPending: boolean }
   | { status: 'error'; error: { category: 'storage' | 'notFound'; message: string } };
+
+export type BulkRemovalResult = { id: string; result: RemovalResult }[];
 
 export type PickedPublication = {
   uri: string;
@@ -113,12 +116,17 @@ export type BatchImportResult =
   | Extract<ImportResult, { status: 'error' }>;
 
 export type PublicationLibrary = {
-  list(): Promise<Publication[]>;
+  list(query?: PublicationQuery): Promise<Publication[]>;
   /** Resolves only after the choice is durable; failures contain safe reader-facing guidance. */
   setFavorite(id: string, isFavorite: boolean): Promise<FavoriteChangeResult>;
   rename(id: string, title: string): Promise<RenameResult>;
   /** Call only after the reader confirms this identified publication. */
   remove(id: string): Promise<RemovalResult>;
+  /** Independent durable outcomes; abort stops before the next ID, leaving unprocessed IDs untouched. */
+  removeMany(
+    ids: readonly string[],
+    options?: { signal?: AbortSignal },
+  ): Promise<BulkRemovalResult>;
   /** Observes committed publication changes. The returned function removes the observer. */
   subscribe(listener: (change?: PublicationChange) => void): () => void;
   importOne(options?: { signal?: AbortSignal }): Promise<ImportResult>;
@@ -406,9 +414,10 @@ export function createPublicationLibrary({
   }
 
   return {
-    async list() {
+    async list(query) {
       await ensureReady();
-      return repository.list();
+      const rows = await repository.list();
+      return query ? queryPublications(rows, query) : rows;
     },
     async setFavorite(id, isFavorite) {
       const release = await acquireMetadataWrite();
@@ -505,6 +514,15 @@ export function createPublicationLibrary({
       } finally {
         release();
       }
+    },
+    async removeMany(ids, { signal } = {}) {
+      const results: BulkRemovalResult = [];
+      for (const id of new Set(ids)) {
+        // Finish an in-flight durable removal, but never start another after cancellation.
+        if (signal?.aborted) break;
+        results.push({ id, result: await this.remove(id) });
+      }
+      return results;
     },
     subscribe(listener) {
       listeners.add(listener);

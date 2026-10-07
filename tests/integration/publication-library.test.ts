@@ -637,3 +637,151 @@ it('does not delete a possibly committed source when database state cannot be ch
   expect(await recovered.list()).toHaveLength(1);
   expect(adapters.files).toEqual(new Set(['publications/publication-1.pdf']));
 });
+
+it('queries opened Recent only, capped at three, with title filtering', async () => {
+  const adapters = createAdapters();
+  const library = createPublicationLibrary(adapters);
+  const imported = await library.importOne();
+  if (imported.status !== 'imported') throw new Error('Fixture import failed');
+  const base = imported.publication;
+  for (let index = 1; index <= 5; index++) {
+    const id = `opened-${index}`;
+    adapters.rows.set(id, {
+      ...base,
+      id,
+      title: `Notes ${index}`,
+      lastOpenedAt: `2026-10-0${index}T00:00:00.000Z`,
+    });
+  }
+  expect((await library.list({ recentOnly: true })).map((row) => row.id)).toEqual([
+    'opened-5',
+    'opened-4',
+    'opened-3',
+  ]);
+  expect(
+    (await library.list({ recentOnly: true, search: 'nOtEs 2' })).map((row) => row.id),
+  ).toEqual(['opened-2']);
+});
+
+it('sorts displayed titles and both date directions with stable ties and unopened last', async () => {
+  const adapters = createAdapters();
+  const library = createPublicationLibrary(adapters);
+  const result = await library.importOne();
+  if (result.status !== 'imported') throw new Error('Fixture import failed');
+  adapters.rows.clear();
+  for (const [id, title, importedAt, lastOpenedAt] of [
+    ['z', 'alpha', '2026-10-03', null],
+    ['b', 'Beta', '2026-10-02', '2026-10-05'],
+    ['a', 'Alpha', '2026-10-02', '2026-10-01'],
+    ['c', 'Alpha', '2026-10-02', '2026-10-01'],
+  ] as const)
+    adapters.rows.set(id, {
+      ...result.publication,
+      id,
+      title,
+      importedAt,
+      lastOpenedAt: lastOpenedAt ?? null,
+    });
+  for (const [sort, expected] of [
+    ['title-asc', ['a', 'c', 'z', 'b']],
+    ['title-desc', ['b', 'a', 'c', 'z']],
+    ['imported-desc', ['z', 'a', 'c', 'b']],
+    ['imported-asc', ['a', 'c', 'b', 'z']],
+    ['opened-desc', ['b', 'a', 'c', 'z']],
+    ['opened-asc', ['a', 'c', 'b', 'z']],
+  ] as const)
+    expect((await library.list({ sort })).map((row) => row.id)).toEqual(expected);
+  expect((await library.list({ search: ' ALpHa ' })).map((row) => row.id)).toEqual(['z', 'a', 'c']);
+});
+
+it('removes only a deduplicated selection and reports partial failures while continuing', async () => {
+  const adapters = createAdapters();
+  const library = createPublicationLibrary(adapters);
+  const result = await library.importOne();
+  if (result.status !== 'imported') throw new Error('Fixture import failed');
+  for (const id of ['kept', 'failed', 'removed'])
+    adapters.rows.set(id, { ...result.publication, id });
+  const begin = adapters.repository.beginRemoval;
+  adapters.repository.beginRemoval = async (id) => {
+    if (id === 'failed') throw new Error('Disk unavailable');
+    return begin(id);
+  };
+  const outcomes = await library.removeMany(['failed', 'removed', 'removed']);
+  expect(outcomes.map(({ id, result }) => [id, result.status])).toEqual([
+    ['failed', 'error'],
+    ['removed', 'removed'],
+  ]);
+  expect((await library.list()).map((row) => row.id).sort()).toEqual([
+    'failed',
+    'kept',
+    'publication-1',
+  ]);
+});
+
+it('reports interrupted bulk cleanup without restoring removed rows and recovers on relaunch', async () => {
+  const adapters = createAdapters();
+  const library = createPublicationLibrary(adapters);
+  const imported = await library.importOne();
+  if (imported.status !== 'imported') throw new Error('Fixture import failed');
+  adapters.rows.set('kept', { ...imported.publication, id: 'kept' });
+  const cleanup = adapters.fileStore.removePublication;
+  adapters.fileStore.removePublication = async () => {
+    throw new Error('Busy file');
+  };
+  expect(await library.removeMany([imported.publication.id])).toEqual([
+    { id: imported.publication.id, result: { status: 'removed', cleanupPending: true } },
+  ]);
+  expect((await library.list()).map((row) => row.id)).toEqual(['kept']);
+  adapters.fileStore.removePublication = cleanup;
+  expect((await createPublicationLibrary(adapters).list()).map((row) => row.id)).toEqual(['kept']);
+});
+
+it('queries a large publication collection independently of PDF page count', async () => {
+  const adapters = createAdapters();
+  const library = createPublicationLibrary(adapters);
+  const imported = await library.importOne();
+  if (imported.status !== 'imported') throw new Error('Fixture import failed');
+  adapters.rows.clear();
+  for (let index = 0; index < 10000; index++) {
+    const id = String(index).padStart(5, '0');
+    adapters.rows.set(id, {
+      ...imported.publication,
+      id,
+      title: `Publication ${id}`,
+      pageCount: 100000,
+    });
+  }
+  expect(
+    (await library.list({ search: 'Publication 0999', sort: 'title-desc' })).map((row) => row.id),
+  ).toEqual([
+    '09999',
+    '09998',
+    '09997',
+    '09996',
+    '09995',
+    '09994',
+    '09993',
+    '09992',
+    '09991',
+    '09990',
+  ]);
+});
+
+it('stops bulk removal between publications and preserves completed outcomes', async () => {
+  const adapters = createAdapters();
+  const library = createPublicationLibrary(adapters);
+  const imported = await library.importOne();
+  if (imported.status !== 'imported') throw new Error('Fixture import failed');
+  for (const id of ['first', 'untouched']) adapters.rows.set(id, { ...imported.publication, id });
+  const controller = new AbortController();
+  const begin = adapters.repository.beginRemoval;
+  adapters.repository.beginRemoval = async (id) => {
+    const result = await begin(id);
+    controller.abort();
+    return result;
+  };
+  const outcomes = await library.removeMany(['first', 'untouched'], { signal: controller.signal });
+  expect(outcomes.map(({ id, result }) => [id, result.status])).toEqual([['first', 'removed']]);
+  expect((await library.list()).map((row) => row.id)).toContain('untouched');
+  expect(await library.removeMany(['untouched'], { signal: controller.signal })).toEqual([]);
+});

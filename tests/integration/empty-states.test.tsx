@@ -11,6 +11,11 @@ const emptyLibrary: PublicationLibrary = {
   list: async () => [],
   subscribe: () => () => {},
   rename: async () => ({ status: 'error', error: { category: 'notFound', message: 'Not found' } }),
+  removeMany: async function (ids) {
+    const results = [];
+    for (const id of new Set(ids)) results.push({ id, result: await this.remove(id) });
+    return results;
+  },
   remove: async () => ({ status: 'error', error: { category: 'notFound', message: 'Not found' } }),
   setFavorite: async () => ({
     status: 'error',

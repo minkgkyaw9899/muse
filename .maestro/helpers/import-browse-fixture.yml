@@ -1,0 +1,25 @@
+appId: com.minkgkyaw9899.muse
+---
+- tapOn: Import PDFs
+- runFlow: browse-files.yml
+- runFlow:
+    when:
+      notVisible:
+        id: 'Muse Browse Fixture, pdf'
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: 'DOC.sidebar.item.On My iPhone'
+          timeout: 60000
+      - tapOn:
+          id: 'DOC.sidebar.item.On My iPhone'
+          point: '90%,50%'
+          retryTapIfNoChange: true
+- runFlow:
+    file: select-file.yml
+    env:
+      FILE_ID: 'Muse Browse Fixture, pdf'
+- runFlow: open-selection.yml
+- extendedWaitUntil:
+    visible: 'Muse Browse Fixture, 2 pages, imported.*'
+    timeout: 30000

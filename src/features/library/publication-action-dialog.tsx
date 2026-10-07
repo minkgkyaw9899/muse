@@ -14,29 +14,38 @@ import { useAppTheme } from '@/theme/theme-provider';
 import { ScrollList } from '@/ui/scroll-list';
 import type { Publication, RemovalResult, RenameResult } from './publication-library';
 
-export type PublicationAction = { kind: 'rename' | 'remove'; publication: Publication };
+export type PublicationAction = {
+  kind: 'rename' | 'remove';
+  publication: Publication;
+  count?: number;
+};
 
 /** One active dialog per collection; drafts survive errors and close only on a durable result. */
 export function PublicationActionDialog({
   action,
   onDismiss,
-  onRename,
-  onRemove,
+  onSubmit,
 }: {
   action: PublicationAction;
   onDismiss(): void;
-  onRename(title: string): Promise<RenameResult>;
-  onRemove(): Promise<RemovalResult>;
+  onSubmit(title: string, signal: AbortSignal): Promise<RenameResult | RemovalResult>;
 }) {
   const { tokens } = useAppTheme();
+  const countLabel =
+    action.count === undefined
+      ? null
+      : `${action.count} ${action.count === 1 ? 'publication' : 'publications'}`;
   const [draft, setDraft] = useState(action.publication.title);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const active = useRef(true);
+  const controller = useRef<AbortController | null>(null);
+  const cancellable = action.kind === 'remove' && action.count !== undefined;
   useEffect(() => {
     active.current = true;
     return () => {
       active.current = false;
+      controller.current?.abort();
     };
   }, []);
   useEffect(() => {
@@ -47,7 +56,8 @@ export function PublicationActionDialog({
     setPending(true);
     setError(null);
     try {
-      const result = action.kind === 'rename' ? await onRename(draft) : await onRemove();
+      controller.current = new AbortController();
+      const result = await onSubmit(draft, controller.current.signal);
       if (!active.current) return;
       if (result.status === 'error') setError(result.error.message);
       else onDismiss();
@@ -55,6 +65,7 @@ export function PublicationActionDialog({
       if (active.current)
         setError(`Muse could not ${action.kind} this publication. Please try again.`);
     } finally {
+      controller.current = null;
       if (active.current) setPending(false);
     }
   }
@@ -63,7 +74,8 @@ export function PublicationActionDialog({
       visible
       animationType="none"
       onRequestClose={() => {
-        if (!pending) onDismiss();
+        if (pending && cancellable) controller.current?.abort();
+        else if (!pending) onDismiss();
       }}
     >
       <SafeAreaView style={{ flex: 1, backgroundColor: tokens.canvas }} accessibilityViewIsModal>
@@ -79,10 +91,14 @@ export function PublicationActionDialog({
             ListHeaderComponent={
               <View className="gap-4">
                 <Text accessibilityRole="header" className="font-bold text-2xl text-text">
-                  {action.kind === 'rename' ? 'Rename publication' : 'Remove one publication?'}
+                  {action.kind === 'rename'
+                    ? 'Rename publication'
+                    : countLabel
+                      ? `Remove ${countLabel}?`
+                      : 'Remove one publication?'}
                 </Text>
                 <Text selectable className="text-lg text-text">
-                  {action.publication.title}
+                  {countLabel ? `${countLabel} selected` : action.publication.title}
                 </Text>
                 {action.kind === 'rename' ? (
                   <>
@@ -104,8 +120,9 @@ export function PublicationActionDialog({
                   </>
                 ) : (
                   <Text selectable className="text-base text-muted-text">
-                    This removes this publication and its saved data from Muse. The original in
-                    Files is kept. This cannot be undone.
+                    {countLabel
+                      ? 'This removes the selected publications and their saved data from Muse. Originals in Files are kept. This cannot be undone.'
+                      : 'This removes this publication and its saved data from Muse. The original in Files is kept. This cannot be undone.'}
                   </Text>
                 )}
                 {error ? (
@@ -122,7 +139,7 @@ export function PublicationActionDialog({
                   accessibilityLabel={
                     action.kind === 'rename'
                       ? 'Save title'
-                      : `Confirm removal of ${action.publication.title}`
+                      : `Confirm removal of ${countLabel ?? action.publication.title}`
                   }
                   disabled={pending}
                   accessibilityState={{ disabled: pending, busy: pending }}
@@ -143,13 +160,24 @@ export function PublicationActionDialog({
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={action.kind === 'rename' ? 'Cancel rename' : 'Cancel removal'}
-                  disabled={pending}
-                  accessibilityState={{ disabled: pending }}
-                  onPress={onDismiss}
+                  accessibilityLabel={
+                    pending && cancellable
+                      ? 'Stop removal'
+                      : action.kind === 'rename'
+                        ? 'Cancel rename'
+                        : 'Cancel removal'
+                  }
+                  disabled={pending && !cancellable}
+                  accessibilityState={{ disabled: pending && !cancellable }}
+                  onPress={() => {
+                    if (pending) controller.current?.abort();
+                    else onDismiss();
+                  }}
                   className="min-h-11 justify-center px-4 py-3"
                 >
-                  <Text className="text-accent-text text-base">Cancel</Text>
+                  <Text className="text-accent-text text-base">
+                    {pending && cancellable ? 'Stop removal' : 'Cancel'}
+                  </Text>
                 </Pressable>
               </View>
             }

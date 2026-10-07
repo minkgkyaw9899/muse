@@ -9,12 +9,18 @@ import { PublicationMenu } from './publication-menu';
 export function PublicationRow({
   publication,
   saving = false,
+  selecting = false,
+  selected = false,
+  onSelect,
   onFavorite,
   onRename,
   onRemove,
 }: {
   publication: Publication;
   saving?: boolean;
+  selecting?: boolean;
+  selected?: boolean;
+  onSelect?: () => void;
   onFavorite: () => void;
   onRename: () => void;
   onRemove: () => void;
@@ -27,6 +33,37 @@ export function PublicationRow({
   }).format(new Date(publication.lastOpenedAt ?? publication.importedAt));
   const dateLabel = publication.lastOpenedAt ? 'last opened' : 'imported';
   const pageLabel = `${publication.pageCount} ${publication.pageCount === 1 ? 'page' : 'pages'}`;
+  const metadata = (
+    <>
+      <Text className="font-semibold text-lg text-text">{publication.title}</Text>
+      <Text className="text-base text-muted-text">
+        {pageLabel} · {date}
+      </Text>
+    </>
+  );
+  if (selecting)
+    return (
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityLabel={`${publication.title}, ${pageLabel}, ${dateLabel} ${date}`}
+        accessibilityState={{ checked: selected, disabled: saving }}
+        disabled={saving}
+        onPress={onSelect}
+        className="min-h-20 flex-row items-center gap-3 border-separator border-b py-3 active:opacity-60"
+      >
+        <SymbolView
+          accessible={false}
+          name={{
+            ios: selected ? 'checkmark.circle.fill' : 'circle',
+            android: selected ? 'check_circle' : 'radio_button_unchecked',
+            web: selected ? 'check_circle' : 'radio_button_unchecked',
+          }}
+          tintColor={selected ? tokens.accent : tokens.mutedText}
+          size={24}
+        />
+        <View className="min-w-0 flex-1">{metadata}</View>
+      </Pressable>
+    );
   return (
     <View className="min-h-20 flex-row items-center gap-3 border-separator border-b py-3">
       <View
@@ -34,10 +71,7 @@ export function PublicationRow({
         accessibilityLabel={`${publication.title}, ${pageLabel}, ${dateLabel} ${date}`}
         className="min-w-0 flex-1 justify-center"
       >
-        <Text className="font-semibold text-lg text-text">{publication.title}</Text>
-        <Text className="text-base text-muted-text">
-          {pageLabel} · {date}
-        </Text>
+        {metadata}
       </View>
       <Pressable
         accessibilityRole="button"
