@@ -362,14 +362,9 @@ export function LibraryScreen({
                       />
                       <HeaderAction
                         compact={compactHeader}
-                        icon={
-                          compactHeader
-                            ? { ios: 'pencil', android: 'edit', web: 'edit' }
-                            : undefined
-                        }
+                        icon={{ ios: 'pencil', android: 'edit', web: 'edit' }}
                         label="Edit Library"
                         hint="Select publications to remove"
-                        text="Edit"
                         disabled={
                           loading || loadFailed || importing || selecting || collection.length === 0
                         }
@@ -385,7 +380,7 @@ export function LibraryScreen({
                 <HeaderAction
                   label="Edit Library"
                   hint="Select matching publications to remove"
-                  text="Edit"
+                  icon={{ ios: 'pencil', android: 'edit', web: 'edit' }}
                   disabled={
                     loading ||
                     loadFailed ||
