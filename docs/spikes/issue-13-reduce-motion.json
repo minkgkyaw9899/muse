@@ -1,0 +1,68 @@
+[
+  {
+    "label": "selection-0-step-0",
+    "os": "26.5",
+    "reduceMotion": true,
+    "checks": {
+      "ambiguous": "ambiguous",
+      "reducedMotion": "reduceMotion",
+      "selection": "reduceMotion",
+      "stale": "stale"
+    }
+  },
+  {
+    "label": "selection-1-step-1",
+    "os": "26.5",
+    "reduceMotion": true,
+    "checks": {
+      "ambiguous": "ambiguous",
+      "reducedMotion": "reduceMotion",
+      "selection": "reduceMotion",
+      "stale": "stale"
+    }
+  },
+  {
+    "label": "selection-2-step-2",
+    "os": "26.5",
+    "reduceMotion": true,
+    "checks": {
+      "ambiguous": "ambiguous",
+      "reducedMotion": "reduceMotion",
+      "selection": "reduceMotion",
+      "stale": "stale"
+    }
+  },
+  {
+    "label": "selection-0-step-3",
+    "os": "26.5",
+    "reduceMotion": true,
+    "checks": {
+      "ambiguous": "ambiguous",
+      "reducedMotion": "reduceMotion",
+      "selection": "reduceMotion",
+      "stale": "stale"
+    }
+  },
+  {
+    "label": "selection-2-step-4",
+    "os": "26.5",
+    "reduceMotion": true,
+    "checks": {
+      "ambiguous": "ambiguous",
+      "reducedMotion": "reduceMotion",
+      "selection": "reduceMotion",
+      "stale": "stale"
+    }
+  },
+  {
+    "label": "selection-1-step-5",
+    "os": "26.5",
+    "reduceMotion": true,
+    "checks": {
+      "ambiguous": "ambiguous",
+      "reducedMotion": "reduceMotion",
+      "selection": "reduceMotion",
+      "stale": "stale"
+    }
+  }
+]
