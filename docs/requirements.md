@@ -18,7 +18,7 @@ Muse is a private, ad-free, offline-first reading app whose primary advantage is
 ### Library
 
 - Import one or multiple PDF files from system document providers.
-- Use a Library, Favorites, and Settings shell, with Library first. On supported iOS 26+, add a separate native Search tab with an integrated bottom search field; elsewhere place Search before + in the Library header.
+- Use a Library, Favorites, and Settings shell, with Library first. On supported iOS 26+, add a separate native Search tab with an integrated bottom search field; elsewhere place Search before + in the Library header. Opening Library search replaces the title and actions with the input and Cancel row using a short slide; Cancel clears the query and restores the header. Skip the transition under Reduce Motion.
 - Show up to three recently opened publications, ordered by last-opened date; never-opened imports do not appear in Recent.
 - Show all publications in a compact list with title, page count, and last-opened or import date. Each row opens the publication when the Reader is available and has a menu for rename, favorite/unfavorite, and removal.
 - Filter Library publications by displayed title as the reader types, ignoring capitalization.

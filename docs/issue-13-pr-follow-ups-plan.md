@@ -23,3 +23,17 @@ passed. iOS 18.6 visual inspection confirmed the Library title and three bare
 icons occupy one row; Search opens the inline field and Cancel restores it.
 The disabled Edit state remains exposed correctly for an empty collection.
 Android uses the same compact fallback controls; no Android emulator was used.
+
+## Fallback search header replacement
+
+On fallback Library, opening Search replaces the title and all three header
+controls with the input and Cancel row. Use a short Reanimated entering/exiting
+slide on the UI thread, respecting system Reduce Motion. Cancel clears filtering
+and restores the original header. Preserve native Search and Favorites behavior.
+Extend the public LibraryScreen search test to require header removal/restoration.
+
+Validation: lint, typecheck, formatting, and all 229 tests passed. The iOS 18.6
+simulator confirmed header replacement, autofocus, filtering, and Cancel restoring
+the header. Filtered bulk removal remains covered by entering Edit before Search.
+Both specification and standards reviews found no actionable issues. Android and
+release-device animation performance were not visually verified.
