@@ -1,5 +1,7 @@
 import { render, screen } from '@testing-library/react-native';
 
+import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
+
 import type { PublicationLibrary } from '@/features/library/publication-library';
 import { FavoritesScreen } from '@/screens/favorites-screen';
 import { LibraryScreen } from '@/screens/library-screen';
@@ -27,9 +29,11 @@ const emptyLibrary: PublicationLibrary = {
 
 async function renderInTheme(ui: React.ReactElement) {
   await render(
-    <ThemeProvider store={createInMemoryPreferenceStore()}>
-      <ToastProvider>{ui}</ToastProvider>
-    </ThemeProvider>,
+    <SafeAreaInsetsContext.Provider value={{ top: 24, bottom: 0, left: 0, right: 0 }}>
+      <ThemeProvider store={createInMemoryPreferenceStore()}>
+        <ToastProvider>{ui}</ToastProvider>
+      </ThemeProvider>
+    </SafeAreaInsetsContext.Provider>,
   );
 }
 

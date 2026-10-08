@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAppLibrary } from '@/features/library/app-library';
 import { LibrarySortControl } from '@/features/library/library-sort-control';
 import {
@@ -45,6 +46,8 @@ export function LibraryScreen({
   favoritesOnly?: boolean;
 }) {
   const title = favoritesOnly ? 'Favorites' : 'Library';
+  const insets = useSafeAreaInsets();
+  const compactHeader = headerSearchAvailable && !favoritesOnly;
   const { tokens } = useAppTheme();
   const toast = useToast();
   const [sort, setSort] = useState<PublicationSort>('imported-desc');
@@ -310,21 +313,36 @@ export function LibraryScreen({
         keyExtractor={(publication) => publication.id}
         estimatedItemSize={80}
         recycleItems={false}
+        contentContainerStyle={Platform.OS === 'android' ? { paddingTop: insets.top } : undefined}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerClassName="grow px-5 pb-8"
         ListHeaderComponent={
           <View className="gap-3 pt-4 pb-3">
             {!searchOnly ? (
-              <View className="flex-row flex-wrap items-center justify-between gap-3">
+              <View
+                className={
+                  compactHeader
+                    ? 'flex-row items-center gap-2'
+                    : 'flex-row flex-wrap items-center justify-between gap-3'
+                }
+              >
                 <Text
                   accessibilityRole="header"
-                  className="min-w-36 flex-1 font-bold text-4xl text-text"
+                  numberOfLines={compactHeader ? 1 : undefined}
+                  className={`${compactHeader ? 'min-w-0' : 'min-w-36'} flex-1 font-bold text-4xl text-text`}
                 >
                   {title}
                 </Text>
-                <View className="max-w-full flex-row flex-wrap items-center gap-2">
+                <View
+                  className={
+                    compactHeader
+                      ? 'shrink-0 flex-row items-center'
+                      : 'max-w-full flex-row flex-wrap items-center gap-2'
+                  }
+                >
                   {headerSearchAvailable || favoritesOnly ? (
                     <HeaderAction
+                      compact={compactHeader}
                       label={`Search ${title}`}
                       icon={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
                       onPress={() => setSearching(true)}
@@ -333,6 +351,7 @@ export function LibraryScreen({
                   {!favoritesOnly ? (
                     <>
                       <HeaderAction
+                        compact={compactHeader}
                         label="Import PDFs"
                         hint="Add PDFs to your Library"
                         icon={{ ios: 'plus', android: 'add', web: 'add' }}
@@ -342,6 +361,12 @@ export function LibraryScreen({
                         }}
                       />
                       <HeaderAction
+                        compact={compactHeader}
+                        icon={
+                          compactHeader
+                            ? { ios: 'pencil', android: 'edit', web: 'edit' }
+                            : undefined
+                        }
                         label="Edit Library"
                         hint="Select publications to remove"
                         text="Edit"

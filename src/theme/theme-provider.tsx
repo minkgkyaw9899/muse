@@ -49,6 +49,7 @@ export function ThemeProvider({
   // Last value known to be in the store, and a counter so only the latest save may revert the UI.
   const persisted = useRef<ThemePreference>('system');
   const latestSave = useRef(0);
+  const saveQueue = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     let active = true;
@@ -88,7 +89,10 @@ export function ThemeProvider({
         changedByUser.current = true;
         const request = ++latestSave.current;
         setPreferenceState(next);
-        const result = await themePreference.save(next);
+        // Persist in tap order; ignoring stale UI results alone cannot order storage writes.
+        const save = saveQueue.current.then(() => themePreference.save(next));
+        saveQueue.current = save.then(() => {});
+        const result = await save;
         if (result.ok) persisted.current = next;
         if (request !== latestSave.current) return;
         if (result.ok) {

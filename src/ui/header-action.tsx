@@ -17,6 +17,7 @@ export function HeaderAction({
   hint,
   icon,
   text,
+  compact = false,
   disabled = false,
   onPress,
 }: {
@@ -24,13 +25,14 @@ export function HeaderAction({
   hint?: string;
   icon?: SymbolName;
   text?: string;
+  compact?: boolean;
   disabled?: boolean;
   onPress?: () => void;
 }) {
   const { tokens, scheme } = useAppTheme();
   const content = (
     <View
-      className={`min-h-14 min-w-14 items-center justify-center px-4 ${disabled ? 'opacity-40' : ''}`}
+      className={`${compact ? 'h-11 w-11' : 'min-h-14 min-w-14 px-4'} items-center justify-center ${disabled ? 'opacity-40' : ''}`}
     >
       {icon ? (
         <SymbolView
@@ -38,7 +40,7 @@ export function HeaderAction({
           name={icon}
           weight={{ ios: 'bold', android: androidBold }}
           tintColor={tokens.accent}
-          size={32}
+          size={compact ? 22 : 32}
         />
       ) : (
         <Text className="font-semibold text-text text-xl">{text}</Text>
@@ -55,7 +57,9 @@ export function HeaderAction({
       onPress={onPress}
       className="rounded-full active:opacity-60"
     >
-      {glassAvailable ? (
+      {compact ? (
+        content
+      ) : glassAvailable ? (
         <GlassView
           glassEffectStyle="regular"
           colorScheme={scheme}
