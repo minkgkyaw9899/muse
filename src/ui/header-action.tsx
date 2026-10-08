@@ -40,7 +40,7 @@ export function HeaderAction({
           name={icon}
           weight={{ ios: 'bold', android: androidBold }}
           tintColor={tokens.accent}
-          size={compact ? 22 : 32}
+          size={22}
         />
       ) : (
         <Text className="font-semibold text-text text-xl">{text}</Text>
