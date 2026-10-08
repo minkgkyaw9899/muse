@@ -80,3 +80,19 @@ standalone UIKit fixture exercises the production native selection seam.
 - The same final native build passed iOS 18.6 fallback verification: the custom
   bar rendered, all three destinations selected correctly, and rapid switching
   returned to Library without a crash or navigation error.
+
+## Develop merge resolution
+
+Merged develop at `f2c1f8e`, preserving its publication management, native Search
+role, scroll minimization, contrast tokens, test harness, and app configuration.
+All conflicts outside the animation seam retain develop's versions. Native
+Search participates in selection tracking at index 3; returning to the previous
+primary tab therefore does not suppress its animation. A public-seam regression
+test covers the return even when Search's cosmetic effect is unavailable.
+
+Merged validation passed: lint, typecheck, 77 unit tests, 109 integration tests,
+42 UI tests, and formatting checks. The iOS 26.5 development build succeeded.
+Manual checks confirmed Search opens its integrated field and returns to Library,
+and rapid primary-tab switching remains usable after a scroll gesture. The empty
+Library did not minimize on scrolling, so minimized/restored hierarchy animation
+is not newly verified by this check; the existing guarded skip still applies.

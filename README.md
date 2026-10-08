@@ -11,6 +11,8 @@ Muse is an iOS-first, offline PDF reader focused on responsive navigation throug
 - [Dependency decisions](docs/dependencies.md)
 - [Implementation plan template](docs/implementation-plan-template.md)
 - [Project foundation plan](docs/plans/0001-project-foundation.md)
+- [Branch and pull request workflow](docs/branching.md)
+- [Testing guide](docs/testing.md)
 
 ## Development
 
@@ -21,12 +23,16 @@ bun install --frozen-lockfile
 bun run validate
 ```
 
+Jest runs unit and integration tests; React Native Testing Library runs rendered UI tests. `bun run test:e2e` runs Maestro flows against an installed iOS simulator build. The [GitHub iOS E2E workflow](.github/workflows/e2e-ios.yml) builds the simulator app and runs those flows for pull requests to `develop`.
+
 Muse requires a development build because its PDF renderer contains custom native code. Expo Go is not supported.
 
 ```bash
-bunx eas-cli build --profile development --platform ios
+bunx expo run:ios
 bunx expo start --dev-client
 ```
+
+Build and test feature changes locally to preserve the free EAS allowance for production releases. The EAS validation workflow is manual only; GitHub Actions runs routine checks and Maestro on pull requests.
 
 ## MuPDF licensing gate
 

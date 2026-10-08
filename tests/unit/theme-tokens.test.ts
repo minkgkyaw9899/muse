@@ -24,6 +24,8 @@ describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
     ['text', 'surface'],
     ['mutedText', 'canvas'],
     ['mutedText', 'surface'],
+    ['accentText', 'canvas'],
+    ['accentText', 'surface'],
     ['destructive', 'canvas'],
     ['destructive', 'surface'],
   ] as const)('%s on %s meets 4.5:1 text contrast', (fg, bg) => {

@@ -38,9 +38,14 @@ yarn-error.*
 
 # tests
 coverage/
+/build/
 
 example
 
 # generated native folders
 /ios
 /android
+
+# Built by scripts/build-mupdf.sh from a pinned MuPDF archive (AGPL; never commit binaries)
+/modules/mupdf-renderer/ios/Frameworks/
+/.cache/

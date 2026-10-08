@@ -1,0 +1,42 @@
+appId: com.minkgkyaw9899.muse
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Your library is empty'
+- tapOn: 'Import PDFs'
+- runFlow: helpers/browse-files.yml
+- runFlow:
+    when:
+      notVisible:
+        id: 'Muse Import Fixture, pdf'
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: 'DOC.sidebar.item.On My iPhone'
+          timeout: 60000
+      - tapOn:
+          id: 'DOC.sidebar.item.On My iPhone'
+          point: '90%,50%'
+          retryTapIfNoChange: true
+- runFlow:
+    file: helpers/select-file.yml
+    env:
+      FILE_ID: 'Muse Import Fixture, pdf'
+- runFlow:
+    file: helpers/select-file.yml
+    env:
+      FILE_ID: 'Muse Duplicate Fixture, pdf'
+- runFlow:
+    file: helpers/select-file.yml
+    env:
+      FILE_ID: 'Muse Damaged Fixture, pdf'
+# One copy imports, its identical twin is a duplicate, and one file is damaged. The batch summary toast
+# is covered by rendered tests: it disappears faster than a slow CI runner polls, so assert the rows.
+- runFlow: helpers/open-selection.yml
+- extendedWaitUntil:
+    visible: 'Muse .*Fixture, 2 pages, imported.*'
+    timeout: 60000
+- stopApp
+- launchApp
+- assertVisible: 'Muse .*Fixture, 2 pages, imported.*'
+- assertNotVisible: 'Muse Damaged Fixture, 2 pages, imported.*'

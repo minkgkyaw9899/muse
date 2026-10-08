@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-02",
+  "environment": "Apple M4; macOS 27; Xcode 27; iPhone 17 Pro simulator iOS 26.5; Release arm64; MuPDF 1.28.5",
+  "method": "Native in-place Files selections during import-cancel.yml; 256 KiB chunks; stage timings exclude the post-copy cancellation barrier; host ps RSS samples every 20 ms plus process overhead; one measured run per variant; two active selections (269 B companion and 150031623 B scan). OS caches not purged.",
+  "diagnosticWithoutChunkAutoreleasePool": {
+    "flow": ".maestro/import-cancel.yml",
+    "measurements": [
+      {
+        "fixture": "Muse Import Fixture.pdf",
+        "native": true,
+        "bytes": 269,
+        "start": 1790924146235,
+        "end": 1790924146250,
+        "copyMs": 14.954000011086464,
+        "baselineRssKiB": 305648,
+        "peakSampledRssKiB": null,
+        "rssGrowthKiB": null
+      },
+      {
+        "fixture": "Muse Large Fixture.pdf",
+        "native": true,
+        "bytes": 150031623,
+        "start": 1790924146235,
+        "end": 1790924146399,
+        "copyMs": 164.12066701054573,
+        "baselineRssKiB": 305648,
+        "peakSampledRssKiB": 452288,
+        "rssGrowthKiB": 146640
+      }
+    ]
+  },
+  "boundedChunkLifetime": {
+    "flow": ".maestro/import-cancel.yml",
+    "measurements": [
+      {
+        "fixture": "Muse Import Fixture.pdf",
+        "native": true,
+        "bytes": 269,
+        "start": 1790924381752,
+        "end": 1790924381782,
+        "copyMs": 29.076290994882584,
+        "baselineRssKiB": 170496,
+        "peakSampledRssKiB": 170496,
+        "rssGrowthKiB": 0
+      },
+      {
+        "fixture": "Muse Large Fixture.pdf",
+        "native": true,
+        "bytes": 150031623,
+        "start": 1790924381754,
+        "end": 1790924382151,
+        "copyMs": 396.9500829875469,
+        "baselineRssKiB": 170496,
+        "peakSampledRssKiB": 192928,
+        "rssGrowthKiB": 22432
+      }
+    ]
+  }
+}

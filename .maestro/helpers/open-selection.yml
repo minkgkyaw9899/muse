@@ -1,0 +1,18 @@
+appId: com.minkgkyaw9899.muse
+---
+# Keep picker handoff separate from import results. A slow provider can dismiss after animation
+# settles; wait for that observable transition before deciding whether a tap needs retrying.
+- retry:
+    maxRetries: 3
+    commands:
+      - runFlow:
+          when:
+            visible: 'Open'
+          commands:
+            - tapOn:
+                text: 'Open'
+                retryTapIfNoChange: true
+      - extendedWaitUntil:
+          notVisible: 'Open'
+          timeout: 30000
+- assertNotVisible: 'Open'

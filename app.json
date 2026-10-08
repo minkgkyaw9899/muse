@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.minkgkyaw9899.Muse"
+      "bundleIdentifier": "com.minkgkyaw9899.muse"
     },
     "android": {
       "adaptiveIcon": {

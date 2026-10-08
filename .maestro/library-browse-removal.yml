@@ -1,0 +1,47 @@
+appId: com.minkgkyaw9899.muse
+---
+- runFlow: import-one.yml
+- runFlow: helpers/import-browse-fixture.yml
+- assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
+- assertNotVisible: Recent
+- tapOn: Sort publications
+- tapOn: Title A–Z
+- assertVisible: Title A–Z
+- tapOn: Sort publications
+- tapOn: Oldest imported
+- assertVisible: Oldest imported
+# The native Search screen supports selection over the filtered collection.
+- tapOn: Search
+- tapOn: Search Library
+- inputText: bRoWsE
+- assertVisible: 'Muse Browse Fixture, 2 pages, imported.*'
+- assertNotVisible: 'Muse Import Fixture, 2 pages, imported.*'
+- tapOn: Edit Library
+- tapOn: Select all visible publications
+- assertVisible: 1 selected
+- tapOn: Remove selected publications
+- assertVisible: Remove 1 publication?
+- tapOn: Cancel removal
+- assertVisible: 'Muse Browse Fixture, 2 pages, imported.*'
+- tapOn: Remove selected publications
+- tapOn: Confirm removal of 1 publication
+- assertVisible: No matching publications
+- tapOn: Close
+- tapOn: Library
+- assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
+- assertNotVisible: 'Muse Browse Fixture, 2 pages, imported.*'
+- stopApp
+- launchApp
+- assertVisible: 'Muse Import Fixture, 2 pages, imported.*'
+- assertNotVisible: 'Muse Browse Fixture, 2 pages, imported.*'
+- runFlow: helpers/import-browse-fixture.yml
+- tapOn: Edit Library
+- tapOn: Select all visible publications
+- assertVisible: 2 selected
+- tapOn: Remove selected publications
+- assertVisible: Remove 2 publications?
+- tapOn: Confirm removal of 2 publications
+- assertVisible: Your library is empty
+- stopApp
+- launchApp
+- assertVisible: Your library is empty

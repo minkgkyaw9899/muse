@@ -33,3 +33,16 @@ it('reports a reduced-motion skip and permits a later selection', async () => {
   reduceMotion = false;
   expect(await animator.select(2)).toBe('animated');
 });
+
+it('bounces the previous primary tab after visiting the native Search tab', async () => {
+  const selections: number[] = [];
+  const animator = createNativeTabIconAnimator(async (index) => {
+    selections.push(index);
+    return index === 3 ? 'unavailable' : 'animated';
+  });
+
+  await animator.select(0);
+  expect(await animator.select(3)).toBe('unavailable');
+  expect(await animator.select(0)).toBe('animated');
+  expect(selections).toEqual([3, 0]);
+});

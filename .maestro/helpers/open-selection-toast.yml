@@ -1,0 +1,17 @@
+appId: com.minkgkyaw9899.muse
+---
+# Tap Open and watch for the toast at once. It disappears after 5 seconds (8 for errors), so waiting
+# for the picker to settle first, as open-selection.yml does, would miss it. A dropped tap leaves
+# Open on screen, so each retry taps again before waiting.
+- retry:
+    maxRetries: 3
+    commands:
+      - runFlow:
+          when:
+            visible: 'Open'
+          commands:
+            - tapOn:
+                text: 'Open'
+      - extendedWaitUntil:
+          visible: '${TOAST}'
+          timeout: 12000

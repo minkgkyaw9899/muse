@@ -1,0 +1,8 @@
+appId: com.minkgkyaw9899.muse
+---
+# Cold Files startup on CI can outlast Maestro's default assertion/tap timeout.
+# Wait for the actual control rather than sleeping or restarting the whole flow.
+- extendedWaitUntil:
+    visible: 'Browse'
+    timeout: 60000
+- tapOn: 'Browse'

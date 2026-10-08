@@ -27,8 +27,10 @@ These rules are non-negotiable. A feature that violates one is incomplete even w
 3. Each feature begins with a written implementation plan and ends with a reviewed diff and updated documentation.
 4. Biome owns JS/TS/CSS formatting and linting. TypeScript strict mode remains enabled.
 5. New packages require a stated need, SDK 57 compatibility evidence, and license review.
-6. No feature is complete while lint, typecheck, unit tests, integration tests, or the combined validation command fails.
+6. No feature is complete while lint, typecheck, Jest unit tests, Jest integration tests, React Native Testing Library UI tests, relevant Maestro flows, or the combined validation command fails.
 7. Performance claims require repeatable measurements and named fixtures.
+8. Every PR for work with an existing GitHub issue links that issue in the PR Development panel. Verify the link before declaring the PR ready; follow `docs/agents/issue-tracker.md` for the procedure.
+9. Use `@legendapp/list` for every scrolling list and scroll view. Do not use React Native's `FlatList`, `SectionList`, or `ScrollView` in product code.
 
 ## Security and legal principles
 

@@ -6,6 +6,7 @@
       "name": "muse",
       "dependencies": {
         "@expo/ui": "~57.0.20",
+        "@legendapp/list": "^3.6.0",
         "@rn-primitives/portal": "^1.5.3",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
@@ -49,6 +50,7 @@
         "@types/react": "~19.2.2",
         "jest": "~29.7.0",
         "jest-expo": "~57.0.5",
+        "lefthook": "^2.1.14",
         "typescript": "~6.0.3",
       },
     },
@@ -369,6 +371,8 @@
     "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.6.0", "", {}, "sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw=="],
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
+
+    "@legendapp/list": ["@legendapp/list@3.6.0", "", { "dependencies": { "use-sync-external-store": "^1.5.0" }, "peerDependencies": { "react": "*", "react-dom": "*", "react-native": "*" }, "optionalPeers": ["react-dom", "react-native"] }, "sha512-ndGQjSYdA32LWErJYbXEm4+eta+4bo0NxQO7eA3Xcvh0rXSb1mTGPbUtUkpea5w4MYciLKaE+0hoPxlMcaMtrw=="],
 
     "@radix-ui/primitive": ["@radix-ui/primitive@1.1.7", "", {}, "sha512-rqWnm76nYT8HoNNqEjpgJ7Pw/DrBj5iBTrmEPo6HTX5+VJyBNOqTdv4g89G63HuR5g0AaENoAcH7Is5fF2kZ8Q=="],
 
@@ -1070,6 +1074,28 @@
 
     "lan-network": ["lan-network@0.2.1", "", { "bin": { "lan-network": "dist/lan-network-cli.js" } }, "sha512-ONPnazC96VKDntab9j9JKwIWhZ4ZUceB4A9Epu4Ssg0hYFmtHZSeQ+n15nIwTFmcBUKtExOer8WTJ4GF9MO64A=="],
 
+    "lefthook": ["lefthook@2.1.14", "", { "optionalDependencies": { "lefthook-darwin-arm64": "2.1.14", "lefthook-darwin-x64": "2.1.14", "lefthook-freebsd-arm64": "2.1.14", "lefthook-freebsd-x64": "2.1.14", "lefthook-linux-arm64": "2.1.14", "lefthook-linux-x64": "2.1.14", "lefthook-openbsd-arm64": "2.1.14", "lefthook-openbsd-x64": "2.1.14", "lefthook-windows-arm64": "2.1.14", "lefthook-windows-x64": "2.1.14" }, "bin": { "lefthook": "bin/index.js" } }, "sha512-Y9TL1dmpRlIdSp73SJ6bb+xAZ4s2SinGTK3pgC9PRWMSjMr2iOfowPGnlSOfAo5fu6S5rdiItsQDxeLEWCGk4g=="],
+
+    "lefthook-darwin-arm64": ["lefthook-darwin-arm64@2.1.14", "", { "os": "darwin", "cpu": "arm64" }, "sha512-VMUAqY81+8ph7Mc0iROd3JWqj2sOuK7SYDyd8ZgzYVKChCt+Nnz8ehd4gUwprJy7QI28IFSUh1M3wnIRiYh+fA=="],
+
+    "lefthook-darwin-x64": ["lefthook-darwin-x64@2.1.14", "", { "os": "darwin", "cpu": "x64" }, "sha512-uSmjcPRU+yB+D6vk+u6WJDnyHlB+XIv1QZw97N2+qNGG2bNSLH/7MuJ6puCdJv+lVPBEO5wBjE3JIbaEzPOQCw=="],
+
+    "lefthook-freebsd-arm64": ["lefthook-freebsd-arm64@2.1.14", "", { "os": "freebsd", "cpu": "arm64" }, "sha512-po/pmjbp/7BjE9RFfeDnh+CeNsA0d+utppOYKB425I7mgI1GcmT8GAZ9DDut4DIutNjVqKL/lzrj+F87Gm40Rg=="],
+
+    "lefthook-freebsd-x64": ["lefthook-freebsd-x64@2.1.14", "", { "os": "freebsd", "cpu": "x64" }, "sha512-+KiXiFjJf7YdHUYjzhDsklcA5bAFZN+pNcz/NbBftrhVTwzNALNoK+SYEKt+9QJsrzL6tpDWmHHFpeLGp+8t8w=="],
+
+    "lefthook-linux-arm64": ["lefthook-linux-arm64@2.1.14", "", { "os": "linux", "cpu": "arm64" }, "sha512-bjeJB16ftJaPWGTedssh8ZrqRy1ACfQuTV7a0O3NU1FoIsJtfHOm0o0mV4cPf4q+ZCVCwq1Xf2I11qUpuJFV4Q=="],
+
+    "lefthook-linux-x64": ["lefthook-linux-x64@2.1.14", "", { "os": "linux", "cpu": "x64" }, "sha512-gYExzjU2w3uKrP1MklbHENS1cXUdCQRIiEJkykI7q4RjhIHi+mQEUAZLxZw93a6jE2pNWaO0me5tB8EbEt4/GQ=="],
+
+    "lefthook-openbsd-arm64": ["lefthook-openbsd-arm64@2.1.14", "", { "os": "openbsd", "cpu": "arm64" }, "sha512-MCW76gTlEMBF3Ds8O63UTxjaSguha/5zT0U3Vr719I1sXueSpttfRmm/5YfIB4MygB116yA/Vi+DsizT/X0kcg=="],
+
+    "lefthook-openbsd-x64": ["lefthook-openbsd-x64@2.1.14", "", { "os": "openbsd", "cpu": "x64" }, "sha512-salAc1PAhLI6xrB9pth5UxALQlTOGvZAfaAvgFwixhkdu8D//uW8zS3faFq31ktd1bDAy5wDI8p9yg+fF5+2uA=="],
+
+    "lefthook-windows-arm64": ["lefthook-windows-arm64@2.1.14", "", { "os": "win32", "cpu": "arm64" }, "sha512-q3JC6lBrYLzkhXEhfnmFxJF47gSd5JeDweH3aNrHoLGX/KkRiOrk9RSyoRwSuGq03EYxSkJhl1FLj2GUxF7VqQ=="],
+
+    "lefthook-windows-x64": ["lefthook-windows-x64@2.1.14", "", { "os": "win32", "cpu": "x64" }, "sha512-WwIxdwW1lDAaJUU3ETcKlCtdqluGr3Cy+LjKvP4QIQnFf0FEXL78THstIkZ6k6qhfUn7/WvyqSIf0cbTAKw2nQ=="],
+
     "leven": ["leven@3.1.0", "", {}, "sha512-qsda+H8jTaUaN/x5vzW2rzc+8Rw4TAQ/4KjB46IwK5VH+IlVeeeje/EoZRpiXvIqjFgK84QffqPztGI3VBLG1A=="],
 
     "lighthouse-logger": ["lighthouse-logger@1.4.2", "", { "dependencies": { "debug": "^2.6.9", "marky": "^1.2.2" } }, "sha512-gPWxznF6TKmUHrOQjlVo2UbaL2EJ71mb2CCeRs/2qBpi4L/g4LUVc9+3lKQ6DTUZwJswfM7ainGrLO1+fOqa2g=="],
@@ -1527,6 +1553,8 @@
     "use-latest-callback": ["use-latest-callback@0.2.6", "", { "peerDependencies": { "react": ">=16.8" } }, "sha512-FvRG9i1HSo0wagmX63Vrm8SnlUU3LMM3WyZkQ76RnslpBrX694AdG4A0zQBx2B3ZifFA0yv/BaEHGBnEax5rZg=="],
 
     "use-sidecar": ["use-sidecar@1.1.3", "", { "dependencies": { "detect-node-es": "^1.1.0", "tslib": "^2.0.0" }, "peerDependencies": { "@types/react": "*", "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc" }, "optionalPeers": ["@types/react"] }, "sha512-Fedw0aZvkhynoPYlA5WXrMCAMm+nSWdZt6lzJQ7Ok8S6Q+VsHmHpRWndVRJ8Be0ZbkfPc5LRYH+5XrzXcEeLRQ=="],
+
+    "use-sync-external-store": ["use-sync-external-store@1.7.0", "", { "peerDependencies": { "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-6L+EeigHMQhdaIPNIFUKwfWJSwWFQ8gJbJ2DLOs5sDIegTwR9fRxvnM3uciHKjIZhFz+KAv2emhWMRvDmMcY8A=="],
 
     "utils-merge": ["utils-merge@1.0.1", "", {}, "sha512-pMZTvIkT1d+TFGvDOqodOclx0QWkkgi6Tdoa8gC8ffGAAqz9pzPTZWAybbsHHoED/ztMtkv/VoYTYyShUn81hA=="],
 

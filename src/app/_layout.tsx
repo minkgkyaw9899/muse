@@ -5,6 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
 import { ThemeProvider, useAppTheme } from '@/theme/theme-provider';
+import { ToastProvider } from '@/ui/toast';
 
 import '../global.css';
 
@@ -14,9 +15,11 @@ function Shell() {
   const { navigationTheme } = useAppTheme();
   return (
     <NavigationThemeProvider value={navigationTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-      <PortalHost />
+      <ToastProvider>
+        <AnimatedSplashOverlay />
+        <AppTabs />
+        <PortalHost />
+      </ToastProvider>
     </NavigationThemeProvider>
   );
 }

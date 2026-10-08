@@ -1,0 +1,298 @@
+name: iOS Maestro E2E
+
+on:
+  pull_request:
+    branches: [develop]
+  # Pushes to develop keep a warm native cache: PR caches are only readable by that PR,
+  # while caches saved on the base branch are readable by every PR that targets it.
+  push:
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      clean_cache:
+        description: Ignore every native cache and rebuild from scratch
+        type: boolean
+        default: false
+      profile_build:
+        description: Record xcodebuild's build timing summary in the job summary
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-maestro-${{ github.event.pull_request.number || github.ref }}
+  # Only a newer push to the same pull request supersedes a run. A run on develop must finish, or its
+  # cache is never saved (a docs-only push would otherwise cancel an in-flight native build).
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Bump the repository variable NATIVE_CACHE_VERSION to invalidate every native cache
+  # (bun, CocoaPods, ccache) without a code change.
+  CACHE_VERSION: ${{ vars.NATIVE_CACHE_VERSION || 'v1' }}
+  # Skip installing git hooks on the runner.
+  LEFTHOOK: '0'
+
+jobs:
+  maestro:
+    runs-on: macos-26
+    # The prior cold setup/build used 47 minutes; retain time for every flow, including the large import.
+    timeout-minutes: 75
+    permissions:
+      contents: read
+      # Lets the recovery step delete a cache entry that produced a failing build.
+      actions: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      # Decide how much work this run needs.
+      #   run_build=false  the pull request or push only touches docs, so skip the macOS build.
+      #   fresh=true       native inputs changed a lot (lockfile, app config, local modules or
+      #                    plugins) or the diff is large, so do not restore a stale fallback cache.
+      - name: Plan build and cache use
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          # A pull request compares with its base; a push compares with the previous tip of the branch.
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CLEAN_INPUT: ${{ inputs.clean_cache }}
+        run: |
+          set -euo pipefail
+          changed=""
+          # An unknown base (new branch, rewritten history, manual run) leaves the list empty, and the
+          # planning script then builds.
+          if git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            changed=$(git diff --name-only "$BASE_SHA"...HEAD)
+          fi
+          echo "Changed files: $(printf '%s\n' "$changed" | grep -c . || true)"
+          printf '%s\n' "$changed" | scripts/ci-plan-build.sh | tee -a "$GITHUB_OUTPUT"
+
+      - name: Set up Bun
+        if: steps.plan.outputs.run_build == 'true'
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.2
+
+      - name: Cache Bun packages
+        if: steps.plan.outputs.run_build == 'true'
+        id: bun-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ env.CACHE_VERSION }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-${{ env.CACHE_VERSION }}-
+
+      # If a restored cache is corrupt, clear it and install again once.
+      - name: Install dependencies
+        if: steps.plan.outputs.run_build == 'true'
+        run: bun install --frozen-lockfile || (bun pm cache rm && bun install --frozen-lockfile)
+
+      # Saved explicitly, not by the cache action's post step: that step is skipped when any later
+      # step fails, which would discard the cache whenever a Maestro flow is flaky.
+      - name: Save Bun packages
+        if: steps.plan.outputs.run_build == 'true' && steps.bun-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ steps.bun-cache.outputs.cache-primary-key }}
+
+      - name: Install Maestro 2.10.0
+        if: steps.plan.outputs.run_build == 'true'
+        run: |
+          curl --fail --location --retry 3 --output /tmp/muse-maestro.zip https://github.com/mobile-dev-inc/Maestro/releases/download/cli-2.10.0/maestro.zip
+          echo '29b675e10cc12080e445e9bfb2e2b4e4dfb9c0f2e30d5884120d258b5e1cd991  /tmp/muse-maestro.zip' | shasum -a 256 --check
+          unzip -q /tmp/muse-maestro.zip -d /tmp/muse-maestro
+          test -x /tmp/muse-maestro/maestro/bin/maestro
+          echo /tmp/muse-maestro/maestro/bin >> "$GITHUB_PATH"
+
+      - name: Install ccache
+        if: steps.plan.outputs.run_build == 'true'
+        run: brew install ccache
+
+      # The key covers only native inputs, so JavaScript-only changes reuse the exact cache and
+      # only re-run the JS bundle. ccache is content-addressed, so a partial restore is safe.
+      - name: Cache C++ compilation (ccache)
+        if: steps.plan.outputs.run_build == 'true'
+        id: ccache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.ccache
+          key: ccache-${{ runner.os }}-${{ env.CACHE_VERSION }}-${{ hashFiles('bun.lock', 'app.json', 'eas.json', 'modules/**', 'plugins/**') }}
+          restore-keys: ${{ steps.plan.outputs.fresh == 'true' && '' || format('ccache-{0}-{1}-', runner.os, env.CACHE_VERSION) }}
+
+      - name: Cache CocoaPods downloads
+        if: steps.plan.outputs.run_build == 'true'
+        id: pods
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/Library/Caches/CocoaPods
+          key: pods-${{ runner.os }}-${{ env.CACHE_VERSION }}-${{ hashFiles('bun.lock', 'app.json', 'modules/**') }}
+          restore-keys: ${{ steps.plan.outputs.fresh == 'true' && '' || format('pods-{0}-{1}-', runner.os, env.CACHE_VERSION) }}
+
+      # React Native's wrapper needs CCACHE_BINARY in the environment (Xcode does not pass build
+      # settings to compile tasks) and ccache must accept Xcode's -ivfsoverlay; see the script.
+      - name: Configure ccache
+        if: steps.plan.outputs.run_build == 'true'
+        run: |
+          env_lines=$(scripts/ci-ccache-env.sh)
+          printf '%s\n' "$env_lines" >> "$GITHUB_ENV"
+          # GITHUB_ENV only reaches later steps, and --zero-stats must see CCACHE_DIR now.
+          while IFS= read -r line; do export "$line"; done <<< "$env_lines"
+          ccache --zero-stats
+
+      - name: Test native publication sources
+        if: steps.plan.outputs.run_build == 'true'
+        run: scripts/test-publication-sources.sh
+
+      - name: Build pinned MuPDF for simulator import tests
+        if: steps.plan.outputs.run_build == 'true'
+        run: scripts/build-mupdf.sh
+
+      # Boot after the MuPDF build. Booting during the MuPDF and native tests made them slower by more
+      # than the boot saved (measured on two runs of PR 23: 517 s and 522 s against 359 s).
+      - name: Boot iPhone simulator
+        if: steps.plan.outputs.run_build == 'true'
+        run: |
+          DEVICE_ID=$(xcrun simctl create 'Muse E2E' com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro com.apple.CoreSimulator.SimRuntime.iOS-26-5)
+          xcrun simctl boot "$DEVICE_ID"
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          echo "MAESTRO_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
+
+      # The pinned MuPDF framework contains an arm64 simulator slice, not x86_64.
+      - name: Select arm64 simulator architecture
+        if: steps.plan.outputs.run_build == 'true'
+        run: |
+          printf 'ARCHS = arm64\n' > "$RUNNER_TEMP/muse-sim-arm64.xcconfig"
+          echo "XCODE_XCCONFIG_FILE=$RUNNER_TEMP/muse-sim-arm64.xcconfig" >> "$GITHUB_ENV"
+
+      # Opt-in (manual runs only). Expo drops xcodebuild's timing summary, so a shim named xcodebuild
+      # goes first on PATH and records it; see scripts/xcodebuild-profile.sh.
+      - name: Prepare build profiling
+        if: steps.plan.outputs.run_build == 'true' && inputs.profile_build
+        run: |
+          mkdir -p "$RUNNER_TEMP/profile-bin"
+          ln -sf "$PWD/scripts/xcodebuild-profile.sh" "$RUNNER_TEMP/profile-bin/xcodebuild"
+          echo "$RUNNER_TEMP/profile-bin" >> "$GITHUB_PATH"
+          echo "XCODEBUILD_PROFILE_LOG=$RUNNER_TEMP/xcodebuild-profile.log" >> "$GITHUB_ENV"
+
+      - name: Build standalone iOS simulator app
+        if: steps.plan.outputs.run_build == 'true'
+        id: build
+        continue-on-error: true
+        run: |
+          start=$(date +%s)
+          trap 'echo "BUILD_SECONDS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"' EXIT
+          scripts/build-ios-e2e.sh /tmp/muse-e2e-build
+
+      # Recovery: a failing build after a cache restore may be caused by a stale cache.
+      # Delete this ref's cache generation (never another ref's: a pull request must not delete the
+      # shared develop cache, which it could not re-save), wipe local build state, and build once clean.
+      - name: Recover with a clean rebuild
+        id: recover
+        if: steps.plan.outputs.run_build == 'true' && steps.build.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          echo "::warning::Build failed with caches restored; clearing native caches and retrying clean."
+          ccache --clear || true
+          rm -rf ios ~/Library/Developer/Xcode/DerivedData ~/Library/Caches/CocoaPods ~/.ccache
+          for prefix in "ccache-${RUNNER_OS}-${CACHE_VERSION}-" "pods-${RUNNER_OS}-${CACHE_VERSION}-"; do
+            gh cache list --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF" --key "$prefix" --json id --jq '.[].id' \
+              | xargs -n1 gh cache delete --repo "$GITHUB_REPOSITORY" || true
+          done
+          scripts/build-ios-e2e.sh /tmp/muse-e2e-build
+
+      # Record where the time went so before and after runs can be compared on the ticket, and make a
+      # build that bypassed ccache visible instead of silently slow.
+      - name: Report build time and ccache statistics
+        if: steps.plan.outputs.run_build == 'true' && always()
+        env:
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+        run: |
+          ccache --show-stats || true
+          stats=$(ccache --print-stats 2>/dev/null || true)
+          ccache_stat() { printf '%s\n' "$stats" | awk -v k="$1" '$1 == k { v = $2 } END { print v + 0 }'; }
+          hits=$(( $(ccache_stat direct_cache_hit) + $(ccache_stat preprocessed_cache_hit) ))
+          misses=$(( $(ccache_stat cache_miss) ))
+          {
+            echo "### iOS build"
+            echo "- Build step, first attempt: ${BUILD_SECONDS:-unknown} s"
+            echo "- ccache: $hits hits, $misses misses"
+          } >> "$GITHUB_STEP_SUMMARY"
+          # A failed build compiled little, so only a successful one proves ccache is not engaged.
+          if [ "$BUILD_OUTCOME" = "success" ] && [ $((hits + misses)) -eq 0 ]; then
+            echo "::warning::ccache served no compile calls. It is not engaged, so every C++ file was compiled from source."
+          fi
+          # Keep only the table rows; the log also holds long script-phase warnings after them.
+          if [ -s "${XCODEBUILD_PROFILE_LOG:-}" ]; then
+            timing=$(awk '/^Build Timing Summary/ { print; show = 1; next } show && / \| [0-9.]+ seconds$/ { print }' "$XCODEBUILD_PROFILE_LOG")
+            echo "::group::xcodebuild timing summary"
+            printf '%s\n' "$timing"
+            echo "::endgroup::"
+            {
+              echo "### xcodebuild timing summary"
+              echo '```'
+              printf '%s\n' "$timing"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # Save the compile caches as soon as the build has succeeded, before the Maestro flows can fail.
+      # After a recovery rebuild, save even when the primary key was an exact hit: recovery deleted it.
+      # Reuse the key computed at restore time: the MuPDF build writes into modules/, which the keys
+      # hash, so recomputing it here would give a different key.
+      - name: Save C++ compilation cache (ccache)
+        if: >-
+          !cancelled() && steps.plan.outputs.run_build == 'true' &&
+          (steps.build.outcome == 'success' || steps.recover.outcome == 'success') &&
+          (steps.ccache.outputs.cache-hit != 'true' || steps.recover.outcome == 'success')
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.ccache
+          key: ${{ steps.ccache.outputs.cache-primary-key }}
+
+      - name: Save CocoaPods downloads
+        if: >-
+          !cancelled() && steps.plan.outputs.run_build == 'true' &&
+          (steps.build.outcome == 'success' || steps.recover.outcome == 'success') &&
+          (steps.pods.outputs.cache-hit != 'true' || steps.recover.outcome == 'success')
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/Library/Caches/CocoaPods
+          key: ${{ steps.pods.outputs.cache-primary-key }}
+
+      - name: Install app and seed Files fixture
+        if: steps.plan.outputs.run_build == 'true'
+        run: |
+          xcrun simctl install "$MAESTRO_DEVICE_ID" /tmp/muse-e2e-build/Muse.app
+          scripts/seed-ios-files-fixture.sh "$MAESTRO_DEVICE_ID"
+
+      - name: Run Maestro flows
+        if: steps.plan.outputs.run_build == 'true'
+        env:
+          MAESTRO_CLI_NO_ANALYTICS: '1'
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: '120000'
+        run: |
+          status=0
+          diagnose() {
+            echo "::group::Failure diagnostics (screen hierarchy, then Muse log)"
+            maestro --udid "$MAESTRO_DEVICE_ID" hierarchy --compact | head -c 20000 || true
+            xcrun simctl spawn "$MAESTRO_DEVICE_ID" log show --last 20m --style compact --predicate 'process == "Muse"' | tail -n 150 || true
+            echo "::endgroup::"
+          }
+          # Seed the large fixture only for its flow: a slow Files provider stays busy with it.
+          for flow in .maestro/*.yml; do
+            if grep -q '^  - large$' "$flow"; then
+              scripts/seed-ios-files-fixture.sh "$MAESTRO_DEVICE_ID" --large
+            else
+              scripts/seed-ios-files-fixture.sh "$MAESTRO_DEVICE_ID"
+            fi
+            maestro test --udid "$MAESTRO_DEVICE_ID" "$flow" || { status=1; diagnose; }
+          done
+          exit "$status"

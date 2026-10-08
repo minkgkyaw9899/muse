@@ -1,8 +1,11 @@
 import { Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useRef } from 'react';
+import { useReducedMotion } from 'react-native-reanimated';
+
 import { detectTabBarKind } from '@/theme/glass-capability';
 import { useAppTheme } from '@/theme/theme-provider';
+
 import { bounceNativeTabIcon } from '../../modules/native-tab-bounce';
 import { createNativeTabIconAnimator } from './native-tab-icon-animator';
 import { type TabBarItem, TabBarView } from './tab-bar';
@@ -36,21 +39,24 @@ const TABS: TabBarItem[] = [
 
 const tabBarKind = detectTabBarKind();
 
-/** iOS 26+: native Liquid Glass tab bar. Otherwise: the custom JS tab bar with identical routes. */
+/** iOS 26+: native Liquid Glass tab bar. Otherwise: the custom JS tab bar with header search. */
 function GlassTabs() {
   const { tokens } = useAppTheme();
+  const reduceMotion = useReducedMotion();
   const animator = useRef(createNativeTabIconAnimator(bounceNativeTabIcon));
 
   return (
     <NativeTabs
-      tintColor={tokens.accent}
-      labelStyle={{ default: { color: tokens.mutedText }, selected: { color: tokens.text } }}
+      tintColor={tokens.accentText}
       screenListeners={({ route }) => ({
         focus: () => {
-          const index = TABS.findIndex((tab) => tab.key === route.name);
+          const index =
+            route.name === 'search' ? TABS.length : TABS.findIndex((tab) => tab.key === route.name);
           if (index >= 0) void animator.current.select(index);
         },
       })}
+      minimizeBehavior={reduceMotion ? 'never' : 'onScrollDown'}
+      labelStyle={{ default: { color: tokens.mutedText }, selected: { color: tokens.accentText } }}
     >
       {TABS.map((tab) => (
         <NativeTabs.Trigger key={tab.key} name={tab.key}>
@@ -61,6 +67,10 @@ function GlassTabs() {
           />
         </NativeTabs.Trigger>
       ))}
+      <NativeTabs.Trigger name="search" role="search">
+        <NativeTabs.Trigger.Label>Search</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="magnifyingglass" md="search" />
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
@@ -81,6 +91,7 @@ export default function AppTabs() {
       {TABS.map((tab) => (
         <Tabs.Screen key={tab.key} name={tab.key} options={{ title: tab.label }} />
       ))}
+      <Tabs.Screen name="search" options={{ href: null }} />
     </Tabs>
   );
 }
