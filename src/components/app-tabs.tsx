@@ -1,10 +1,13 @@
 import { Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { useRef } from 'react';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import { detectTabBarKind } from '@/theme/glass-capability';
 import { useAppTheme } from '@/theme/theme-provider';
 
+import { bounceNativeTabIcon } from '../../modules/native-tab-bounce';
+import { createNativeTabIconAnimator } from './native-tab-icon-animator';
 import { type TabBarItem, TabBarView } from './tab-bar';
 
 const TABS: TabBarItem[] = [
@@ -40,10 +43,18 @@ const tabBarKind = detectTabBarKind();
 function GlassTabs() {
   const { tokens } = useAppTheme();
   const reduceMotion = useReducedMotion();
+  const animator = useRef(createNativeTabIconAnimator(bounceNativeTabIcon));
 
   return (
     <NativeTabs
       tintColor={tokens.accentText}
+      screenListeners={({ route }) => ({
+        focus: () => {
+          const index =
+            route.name === 'search' ? TABS.length : TABS.findIndex((tab) => tab.key === route.name);
+          if (index >= 0) void animator.current.select(index);
+        },
+      })}
       minimizeBehavior={reduceMotion ? 'never' : 'onScrollDown'}
       labelStyle={{ default: { color: tokens.mutedText }, selected: { color: tokens.accentText } }}
     >

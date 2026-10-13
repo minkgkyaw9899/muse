@@ -253,12 +253,20 @@ it('opens fallback Library search, filters as typed, and cancels without changin
   expect(await screen.findByText('Field Notes')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Edit Library' })).toBeEnabled();
   await fireEvent.press(screen.getByRole('button', { name: 'Search Library' }));
+  expect(screen.queryByRole('header', { name: 'Library' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Search Library' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Import PDFs' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Edit Library' })).toBeNull();
   await fireEvent.changeText(screen.getByLabelText('Search Library titles'), 'missing');
   expect(screen.getByText('No matching publications')).toBeTruthy();
   expect(screen.queryByText('Field Notes')).toBeNull();
   await fireEvent.press(screen.getByRole('button', { name: 'Cancel search' }));
   expect(screen.getByText('Field Notes')).toBeTruthy();
   expect(screen.queryByLabelText('Search Library titles')).toBeNull();
+  expect(screen.getByRole('header', { name: 'Library' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Search Library' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Import PDFs' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Edit Library' })).toBeEnabled();
 });
 
 it('renders the Library and Search screens from the one installed app Library', async () => {

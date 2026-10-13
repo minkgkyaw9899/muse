@@ -9,6 +9,15 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Animated, {
+  Easing,
+  FadeInLeft,
+  FadeInRight,
+  FadeOutLeft,
+  FadeOutRight,
+  ReduceMotion,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAppLibrary } from '@/features/library/app-library';
 import { LibrarySortControl } from '@/features/library/library-sort-control';
 import {
@@ -31,6 +40,18 @@ import { useToast } from '@/ui/toast';
 import { summarizeImport } from './import-result-message';
 
 const headerSearchAvailable = detectTabBarKind() === 'fallback';
+const headerEnter = FadeInLeft.duration(180)
+  .easing(Easing.bezier(0.23, 1, 0.32, 1))
+  .reduceMotion(ReduceMotion.System);
+const headerExit = FadeOutLeft.duration(180)
+  .easing(Easing.bezier(0.23, 1, 0.32, 1))
+  .reduceMotion(ReduceMotion.System);
+const searchEnter = FadeInRight.duration(180)
+  .easing(Easing.bezier(0.23, 1, 0.32, 1))
+  .reduceMotion(ReduceMotion.System);
+const searchExit = FadeOutRight.duration(180)
+  .easing(Easing.bezier(0.23, 1, 0.32, 1))
+  .reduceMotion(ReduceMotion.System);
 
 /** The route injects the production Library; tests can supply the same public interface. */
 export function LibraryScreen({
@@ -45,6 +66,8 @@ export function LibraryScreen({
   favoritesOnly?: boolean;
 }) {
   const title = favoritesOnly ? 'Favorites' : 'Library';
+  const insets = useSafeAreaInsets();
+  const compactHeader = headerSearchAvailable && !favoritesOnly;
   const { tokens } = useAppTheme();
   const toast = useToast();
   const [sort, setSort] = useState<PublicationSort>('imported-desc');
@@ -53,6 +76,7 @@ export function LibraryScreen({
   const [confirmation, setConfirmation] = useState<Publication[] | null>(null);
   const [removing, setRemoving] = useState(false);
   const [searching, setSearching] = useState(false);
+  const hasSearched = useRef(false);
   const [localQuery, setLocalQuery] = useState('');
   const libraryRef = useRef<PublicationLibrary | null>(null);
   libraryRef.current ??= suppliedLibrary ?? getAppLibrary();
@@ -310,29 +334,51 @@ export function LibraryScreen({
         keyExtractor={(publication) => publication.id}
         estimatedItemSize={80}
         recycleItems={false}
+        contentContainerStyle={Platform.OS === 'android' ? { paddingTop: insets.top } : undefined}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerClassName="grow px-5 pb-8"
         ListHeaderComponent={
           <View className="gap-3 pt-4 pb-3">
-            {!searchOnly ? (
-              <View className="flex-row flex-wrap items-center justify-between gap-3">
+            {!searchOnly && !(compactHeader && searching) ? (
+              <Animated.View
+                key="library-header"
+                entering={compactHeader && hasSearched.current ? headerEnter : undefined}
+                exiting={compactHeader ? headerExit : undefined}
+                className={
+                  compactHeader
+                    ? 'flex-row items-center gap-2'
+                    : 'flex-row flex-wrap items-center justify-between gap-3'
+                }
+              >
                 <Text
                   accessibilityRole="header"
-                  className="min-w-36 flex-1 font-bold text-4xl text-text"
+                  numberOfLines={compactHeader ? 1 : undefined}
+                  className={`${compactHeader ? 'min-w-0' : 'min-w-36'} flex-1 font-bold text-4xl text-text`}
                 >
                   {title}
                 </Text>
-                <View className="max-w-full flex-row flex-wrap items-center gap-2">
+                <View
+                  className={
+                    compactHeader
+                      ? 'shrink-0 flex-row items-center'
+                      : 'max-w-full flex-row flex-wrap items-center gap-2'
+                  }
+                >
                   {headerSearchAvailable || favoritesOnly ? (
                     <HeaderAction
+                      compact={compactHeader}
                       label={`Search ${title}`}
                       icon={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
-                      onPress={() => setSearching(true)}
+                      onPress={() => {
+                        hasSearched.current = true;
+                        setSearching(true);
+                      }}
                     />
                   ) : null}
                   {!favoritesOnly ? (
                     <>
                       <HeaderAction
+                        compact={compactHeader}
                         label="Import PDFs"
                         hint="Add PDFs to your Library"
                         icon={{ ios: 'plus', android: 'add', web: 'add' }}
@@ -342,9 +388,10 @@ export function LibraryScreen({
                         }}
                       />
                       <HeaderAction
+                        compact={compactHeader}
+                        icon={{ ios: 'pencil', android: 'edit', web: 'edit' }}
                         label="Edit Library"
                         hint="Select publications to remove"
-                        text="Edit"
                         disabled={
                           loading || loadFailed || importing || selecting || collection.length === 0
                         }
@@ -353,14 +400,14 @@ export function LibraryScreen({
                     </>
                   ) : null}
                 </View>
-              </View>
+              </Animated.View>
             ) : null}
             {searchOnly ? (
               <View className="items-end">
                 <HeaderAction
                   label="Edit Library"
                   hint="Select matching publications to remove"
-                  text="Edit"
+                  icon={{ ios: 'pencil', android: 'edit', web: 'edit' }}
                   disabled={
                     loading ||
                     loadFailed ||
@@ -373,7 +420,12 @@ export function LibraryScreen({
               </View>
             ) : null}
             {searching && !searchOnly ? (
-              <View className="flex-row flex-wrap items-center gap-2">
+              <Animated.View
+                key="library-search"
+                entering={compactHeader ? searchEnter : undefined}
+                exiting={compactHeader ? searchExit : undefined}
+                className="flex-row items-center gap-2"
+              >
                 <TextInput
                   accessibilityLabel={`Search ${title} titles`}
                   placeholder={`Search ${title}`}
@@ -384,7 +436,7 @@ export function LibraryScreen({
                   value={localQuery}
                   onChangeText={setLocalQuery}
                   returnKeyType="search"
-                  className="min-h-14 min-w-36 flex-1 rounded-full border border-separator bg-surface px-4 text-base text-text"
+                  className="min-h-14 min-w-0 flex-1 rounded-full border border-separator bg-surface px-4 text-base text-text"
                 />
                 <Pressable
                   accessibilityRole="button"
@@ -398,7 +450,7 @@ export function LibraryScreen({
                 >
                   <Text className="text-accent-text text-base">Cancel</Text>
                 </Pressable>
-              </View>
+              </Animated.View>
             ) : null}
             {!favoritesOnly ? (
               <LibrarySortControl

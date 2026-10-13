@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { AppearanceScreen } from '@/screens/appearance-screen';
 import { createInMemoryPreferenceStore } from '@/testing/in-memory-preference-store';
-import { ThemeProvider } from '@/theme/theme-provider';
+import { ThemeProvider, useAppTheme } from '@/theme/theme-provider';
 
 async function renderSettings(store = createInMemoryPreferenceStore()) {
   await render(
@@ -76,4 +76,46 @@ describe('Appearance theme choice, rapid taps', () => {
     });
     expect(selected('Dark')).toBe(true);
   });
+});
+
+it('serializes successful rapid theme saves and restores the latest choice after relaunch', async () => {
+  const store = createInMemoryPreferenceStore('system');
+  const started: string[] = [];
+  let finishLight!: () => void;
+  const lightGate = new Promise<void>((resolve) => {
+    finishLight = resolve;
+  });
+  const delayed = {
+    read: store.read,
+    async write(value: string) {
+      started.push(value);
+      if (value === 'light') await lightGate;
+      await store.write(value);
+    },
+  };
+  let choose!: ReturnType<typeof useAppTheme>['setPreference'];
+  function ThemeActions() {
+    choose = useAppTheme().setPreference;
+    return <AppearanceScreen />;
+  }
+  await render(
+    <ThemeProvider store={delayed}>
+      <ThemeActions />
+    </ThemeProvider>,
+  );
+  await waitFor(() => expect(selected('System')).toBe(true));
+  await act(async () => {
+    void choose('light');
+    void choose('dark');
+  });
+  expect(started).toEqual(['light']);
+  expect(selected('Dark')).toBe(true);
+  await act(async () => {
+    finishLight();
+  });
+  await waitFor(() => expect(store.value).toBe('dark'));
+  expect(started).toEqual(['light', 'dark']);
+  await screen.unmount();
+  await renderSettings(store);
+  await waitFor(() => expect(selected('Dark')).toBe(true));
 });

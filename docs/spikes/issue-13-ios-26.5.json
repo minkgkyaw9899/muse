@@ -1,0 +1,1340 @@
+[
+  {
+    "checks": {
+      "ambiguous": "ambiguous",
+      "reducedMotion": "reduceMotion",
+      "selection": "animated",
+      "stale": "stale"
+    },
+    "label": "selection-0-step-0",
+    "nodes": [
+      {
+        "frame": "{{0, 0}, {402, 83}}",
+        "path": "tabBar",
+        "type": "UITabBar",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {274, 62}}",
+        "path": "tabBar/0",
+        "type": "_UITabBarPlatterView",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {274, 62}}",
+        "path": "tabBar/0/0",
+        "type": "SelectedContentView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/0/0",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{98, 8.9999999999999982}, {33.333333333333343, 29.333333333333329}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": true,
+        "path": "tabBar/0/0/0/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{97, 39}, {35.666666666666657, 12}}",
+        "path": "tabBar/0/0/0/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/0/1",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{187, 11.666666666666668}, {28.666666666666657, 25.000000000000004}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/0/1/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{178, 39}, {46, 12}}",
+        "path": "tabBar/0/0/1/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/0/2",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{273, 10}, {28, 28}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/0/2/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{266, 39}, {42.333333333333314, 12}}",
+        "path": "tabBar/0/0/2/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/1",
+        "type": "_UILiquidLensView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0",
+        "type": "UIView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/0",
+        "type": "_UITabSelectionView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1",
+        "type": "ClearGlassView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0",
+        "type": "UIView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0/0",
+        "type": "SDFView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0/0/0",
+        "type": "SDFElementView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0/1",
+        "type": "_UIPortalView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/1",
+        "type": "UIView",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {274, 62}}",
+        "path": "tabBar/0/2",
+        "type": "ContentView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/2/0",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{98, 8.9999999999999982}, {34, 29.333333333333329}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/2/0/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{98, 39}, {35, 12}}",
+        "path": "tabBar/0/2/0/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/2/1",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{187, 11.666666666666668}, {28.666666666666657, 25.000000000000004}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/2/1/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{178, 39}, {45.333333333333343, 12}}",
+        "path": "tabBar/0/2/1/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/2/2",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{273, 9.3333333333333339}, {28.666666666666686, 28.666666666666664}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/2/2/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{266, 39}, {41.333333333333314, 12}}",
+        "path": "tabBar/0/2/2/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {94, 54}}",
+        "path": "tabBar/0/3",
+        "type": "DestOutView",
+        "visible": true
+      }
+    ],
+    "os": "26.5",
+    "reduceMotion": false
+  },
+  {
+    "checks": {
+      "ambiguous": "ambiguous",
+      "reducedMotion": "reduceMotion",
+      "selection": "animated",
+      "stale": "stale"
+    },
+    "label": "selection-1-step-1",
+    "nodes": [
+      {
+        "frame": "{{0, 0}, {402, 83}}",
+        "path": "tabBar",
+        "type": "UITabBar",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {274, 62}}",
+        "path": "tabBar/0",
+        "type": "_UITabBarPlatterView",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {274, 62}}",
+        "path": "tabBar/0/0",
+        "type": "SelectedContentView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/0/0",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{98, 8.9999999999999982}, {33.333333333333343, 29.333333333333329}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/0/0/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{97, 39}, {35.666666666666657, 12}}",
+        "path": "tabBar/0/0/0/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/0/1",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{187, 11.666666666666668}, {28.666666666666657, 25.000000000000004}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": true,
+        "path": "tabBar/0/0/1/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{178, 39}, {46, 12}}",
+        "path": "tabBar/0/0/1/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/0/2",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{273, 10}, {28, 28}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/0/2/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{266, 39}, {42.333333333333314, 12}}",
+        "path": "tabBar/0/0/2/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/1",
+        "type": "_UILiquidLensView",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0",
+        "type": "UIView",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/0",
+        "type": "_UITabSelectionView",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1",
+        "type": "ClearGlassView",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0",
+        "type": "UIView",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0/0",
+        "type": "SDFView",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0/0/0",
+        "type": "SDFElementView",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0/1",
+        "type": "_UIPortalView",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/1",
+        "type": "UIView",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {274, 62}}",
+        "path": "tabBar/0/2",
+        "type": "ContentView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/2/0",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{98, 8.9999999999999982}, {34, 29.333333333333329}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/2/0/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{98, 39}, {35, 12}}",
+        "path": "tabBar/0/2/0/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/2/1",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{187, 11.666666666666668}, {28.666666666666657, 25.000000000000004}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/2/1/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{178, 39}, {45.333333333333343, 12}}",
+        "path": "tabBar/0/2/1/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/2/2",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{273, 9.3333333333333339}, {28.666666666666686, 28.666666666666664}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/2/2/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{266, 39}, {41.333333333333314, 12}}",
+        "path": "tabBar/0/2/2/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {94, 54}}",
+        "path": "tabBar/0/3",
+        "type": "DestOutView",
+        "visible": true
+      }
+    ],
+    "os": "26.5",
+    "reduceMotion": false
+  },
+  {
+    "checks": {
+      "ambiguous": "ambiguous",
+      "reducedMotion": "reduceMotion",
+      "selection": "animated",
+      "stale": "stale"
+    },
+    "label": "selection-2-step-2",
+    "nodes": [
+      {
+        "frame": "{{0, 0}, {402, 83}}",
+        "path": "tabBar",
+        "type": "UITabBar",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {274, 62}}",
+        "path": "tabBar/0",
+        "type": "_UITabBarPlatterView",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {274, 62}}",
+        "path": "tabBar/0/0",
+        "type": "SelectedContentView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/0/0",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{98, 8.9999999999999982}, {33.333333333333343, 29.333333333333329}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/0/0/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{97, 39}, {35.666666666666657, 12}}",
+        "path": "tabBar/0/0/0/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/0/1",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{187, 11.666666666666668}, {28.666666666666657, 25.000000000000004}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/0/1/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{178, 39}, {46, 12}}",
+        "path": "tabBar/0/0/1/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/0/2",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{273, 10}, {28, 28}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": true,
+        "path": "tabBar/0/0/2/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{266, 39}, {42.333333333333314, 12}}",
+        "path": "tabBar/0/0/2/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/1",
+        "type": "_UILiquidLensView",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0",
+        "type": "UIView",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/0",
+        "type": "_UITabSelectionView",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1",
+        "type": "ClearGlassView",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0",
+        "type": "UIView",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0/0",
+        "type": "SDFView",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0/0/0",
+        "type": "SDFElementView",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0/1",
+        "type": "_UIPortalView",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/1",
+        "type": "UIView",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {274, 62}}",
+        "path": "tabBar/0/2",
+        "type": "ContentView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/2/0",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{98, 8.9999999999999982}, {34, 29.333333333333329}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/2/0/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{98, 39}, {35, 12}}",
+        "path": "tabBar/0/2/0/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/2/1",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{187, 11.666666666666668}, {28.666666666666657, 25.000000000000004}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/2/1/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{178, 39}, {45.333333333333343, 12}}",
+        "path": "tabBar/0/2/1/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/2/2",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{273, 9.3333333333333339}, {28.666666666666686, 28.666666666666664}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/2/2/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{266, 39}, {41.333333333333314, 12}}",
+        "path": "tabBar/0/2/2/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {94, 54}}",
+        "path": "tabBar/0/3",
+        "type": "DestOutView",
+        "visible": true
+      }
+    ],
+    "os": "26.5",
+    "reduceMotion": false
+  },
+  {
+    "checks": {
+      "ambiguous": "ambiguous",
+      "reducedMotion": "reduceMotion",
+      "selection": "animated",
+      "stale": "stale"
+    },
+    "label": "selection-0-step-3",
+    "nodes": [
+      {
+        "frame": "{{0, 0}, {402, 83}}",
+        "path": "tabBar",
+        "type": "UITabBar",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {274, 62}}",
+        "path": "tabBar/0",
+        "type": "_UITabBarPlatterView",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {274, 62}}",
+        "path": "tabBar/0/0",
+        "type": "SelectedContentView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/0/0",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{98, 8.9999999999999982}, {33.333333333333343, 29.333333333333329}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": true,
+        "path": "tabBar/0/0/0/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{97, 39}, {35.666666666666657, 12}}",
+        "path": "tabBar/0/0/0/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/0/1",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{187, 11.666666666666668}, {28.666666666666657, 25.000000000000004}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/0/1/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{178, 39}, {46, 12}}",
+        "path": "tabBar/0/0/1/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/0/2",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{273, 10}, {28, 28}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/0/2/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{266, 39}, {42.333333333333314, 12}}",
+        "path": "tabBar/0/0/2/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/1",
+        "type": "_UILiquidLensView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0",
+        "type": "UIView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/0",
+        "type": "_UITabSelectionView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1",
+        "type": "ClearGlassView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0",
+        "type": "UIView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0/0",
+        "type": "SDFView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0/0/0",
+        "type": "SDFElementView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0/1",
+        "type": "_UIPortalView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/1",
+        "type": "UIView",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {274, 62}}",
+        "path": "tabBar/0/2",
+        "type": "ContentView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/2/0",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{98, 8.9999999999999982}, {34, 29.333333333333329}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/2/0/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{98, 39}, {35, 12}}",
+        "path": "tabBar/0/2/0/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/2/1",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{187, 11.666666666666668}, {28.666666666666657, 25.000000000000004}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/2/1/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{178, 39}, {45.333333333333343, 12}}",
+        "path": "tabBar/0/2/1/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/2/2",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{273, 9.3333333333333339}, {28.666666666666686, 28.666666666666664}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/2/2/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{266, 39}, {41.333333333333314, 12}}",
+        "path": "tabBar/0/2/2/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {94, 54}}",
+        "path": "tabBar/0/3",
+        "type": "DestOutView",
+        "visible": true
+      }
+    ],
+    "os": "26.5",
+    "reduceMotion": false
+  },
+  {
+    "checks": {
+      "ambiguous": "ambiguous",
+      "reducedMotion": "reduceMotion",
+      "selection": "animated",
+      "stale": "stale"
+    },
+    "label": "selection-2-step-4",
+    "nodes": [
+      {
+        "frame": "{{0, 0}, {402, 83}}",
+        "path": "tabBar",
+        "type": "UITabBar",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {274, 62}}",
+        "path": "tabBar/0",
+        "type": "_UITabBarPlatterView",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {274, 62}}",
+        "path": "tabBar/0/0",
+        "type": "SelectedContentView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/0/0",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{98, 8.9999999999999982}, {33.333333333333343, 29.333333333333329}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/0/0/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{97, 39}, {35.666666666666657, 12}}",
+        "path": "tabBar/0/0/0/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/0/1",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{187, 11.666666666666668}, {28.666666666666657, 25.000000000000004}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/0/1/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{178, 39}, {46, 12}}",
+        "path": "tabBar/0/0/1/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/0/2",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{273, 10}, {28, 28}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": true,
+        "path": "tabBar/0/0/2/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{266, 39}, {42.333333333333314, 12}}",
+        "path": "tabBar/0/0/2/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/1",
+        "type": "_UILiquidLensView",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0",
+        "type": "UIView",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/0",
+        "type": "_UITabSelectionView",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1",
+        "type": "ClearGlassView",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0",
+        "type": "UIView",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0/0",
+        "type": "SDFView",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0/0/0",
+        "type": "SDFElementView",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0/1",
+        "type": "_UIPortalView",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/1",
+        "type": "UIView",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {274, 62}}",
+        "path": "tabBar/0/2",
+        "type": "ContentView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/2/0",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{98, 8.9999999999999982}, {34, 29.333333333333329}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/2/0/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{98, 39}, {35, 12}}",
+        "path": "tabBar/0/2/0/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/2/1",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{187, 11.666666666666668}, {28.666666666666657, 25.000000000000004}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/2/1/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{178, 39}, {45.333333333333343, 12}}",
+        "path": "tabBar/0/2/1/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/2/2",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{273, 9.3333333333333339}, {28.666666666666686, 28.666666666666664}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/2/2/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{266, 39}, {41.333333333333314, 12}}",
+        "path": "tabBar/0/2/2/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {94, 54}}",
+        "path": "tabBar/0/3",
+        "type": "DestOutView",
+        "visible": true
+      }
+    ],
+    "os": "26.5",
+    "reduceMotion": false
+  },
+  {
+    "checks": {
+      "ambiguous": "ambiguous",
+      "reducedMotion": "reduceMotion",
+      "selection": "animated",
+      "stale": "stale"
+    },
+    "label": "selection-1-step-5",
+    "nodes": [
+      {
+        "frame": "{{0, 0}, {402, 83}}",
+        "path": "tabBar",
+        "type": "UITabBar",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {274, 62}}",
+        "path": "tabBar/0",
+        "type": "_UITabBarPlatterView",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {274, 62}}",
+        "path": "tabBar/0/0",
+        "type": "SelectedContentView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/0/0",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{98, 8.9999999999999982}, {33.333333333333343, 29.333333333333329}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/0/0/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{97, 39}, {35.666666666666657, 12}}",
+        "path": "tabBar/0/0/0/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/0/1",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{187, 11.666666666666668}, {28.666666666666657, 25.000000000000004}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": true,
+        "path": "tabBar/0/0/1/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{178, 39}, {46, 12}}",
+        "path": "tabBar/0/0/1/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/0/2",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{273, 10}, {28, 28}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/0/2/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{266, 39}, {42.333333333333314, 12}}",
+        "path": "tabBar/0/0/2/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/1",
+        "type": "_UILiquidLensView",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0",
+        "type": "UIView",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/0",
+        "type": "_UITabSelectionView",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1",
+        "type": "ClearGlassView",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0",
+        "type": "UIView",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0/0",
+        "type": "SDFView",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0/0/0",
+        "type": "SDFElementView",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/0/1",
+        "type": "_UIPortalView",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/1/0/1/1",
+        "type": "UIView",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {274, 62}}",
+        "path": "tabBar/0/2",
+        "type": "ContentView",
+        "visible": true
+      },
+      {
+        "frame": "{{68, 4}, {94, 54}}",
+        "path": "tabBar/0/2/0",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{98, 8.9999999999999982}, {34, 29.333333333333329}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/2/0/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{98, 39}, {35, 12}}",
+        "path": "tabBar/0/2/0/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{154, 4}, {94, 54}}",
+        "path": "tabBar/0/2/1",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{187, 11.666666666666668}, {28.666666666666657, 25.000000000000004}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/2/1/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{178, 39}, {45.333333333333343, 12}}",
+        "path": "tabBar/0/2/1/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{240, 4}, {94, 54}}",
+        "path": "tabBar/0/2/2",
+        "type": "_UITabButton",
+        "visible": true
+      },
+      {
+        "frame": "{{273, 9.3333333333333339}, {28.666666666666686, 28.666666666666664}}",
+        "hasImage": true,
+        "isSymbol": true,
+        "matchesSelectedImage": false,
+        "path": "tabBar/0/2/2/0",
+        "type": "UIImageView",
+        "visible": true
+      },
+      {
+        "frame": "{{266, 39}, {41.333333333333314, 12}}",
+        "path": "tabBar/0/2/2/1",
+        "type": "Label",
+        "visible": true
+      },
+      {
+        "frame": "{{64, 0}, {94, 54}}",
+        "path": "tabBar/0/3",
+        "type": "DestOutView",
+        "visible": true
+      }
+    ],
+    "os": "26.5",
+    "reduceMotion": false
+  }
+]

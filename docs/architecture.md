@@ -36,6 +36,7 @@ src/ui/                  Reusable React Native Reusables/Uniwind primitives
 src/theme/               Semantic tokens and glass/fallback capability adapter
 src/testing/             Shared test adapters and fixture builders
 modules/mupdf-renderer/   Local Expo native module and vendored/native build integration
+modules/native-tab-bounce/ Guarded iOS native tab icon animation
 modules/publication-import/  In-place iOS picker and bounded, coordinated provider copying
 tests/integration/        Cross-module JavaScript integration tests
 tests/ui/                 React Native Testing Library rendered behavior tests
@@ -119,6 +120,18 @@ Shared primitives live in `src/ui/`: `Screen` (canvas, large title, gutters), `L
 
 The tab bar follows the same capability rule: `resolveTabBarKind` in `src/theme/glass-capability.ts` selects the native Liquid Glass tab bar on iOS 26+ and the custom JS tab bar elsewhere.
 
+Native tab focus crosses `createNativeTabIconAnimator().select(index)` into the
+Apple-only local `native-tab-bounce` module. Initial and repeated focus do not
+animate. The native adapter finds one attached tab controller in visible windows
+of active scenes, then one visible UIImageView whose image equals the selected
+tab item's SF Symbol image. It uses public UIKit state, not private selectors,
+class names, geometry, or navigation delegate replacement. Missing or ambiguous
+targets skip the cosmetic effect; system Reduce Motion is checked live. Lookup
+work and retries are bounded, newer requests supersede pending ones, and a weak
+reference allows the previous bounce to be stopped without retaining UIKit views.
+The custom fallback bar is unchanged. The probe and native checks are documented
+in `docs/native-tab-bounce-spike.md`.
+
 `GlassSurface` is a capability adapter with two adapters:
 
 - iOS 26+ adapter using `expo-glass-effect` only when both compile-time/system and runtime API checks pass;
@@ -157,8 +170,10 @@ Errors cross seams as typed categories: `unsupported`, `corrupt`, `passwordRequi
 Crashes, out-of-memory terminations, interrupted imports, and cache corruption must be recoverable. Derived cache is always disposable; source publications and user metadata are not.
 
 
-The glass tab shell adds a native search-role route with a nested Stack search controller. Its bottom search field feeds displayed-title filtering in the virtualized Library screen. The fallback exposes inline header search through the same screen. Both routes reuse one app Library instance from `src/features/library/app-library.ts` (the E2E build installs its test adapters there so Search never creates a second reconciler); focusing Search reloads its snapshot without creating another reconciler or reading PDF pages. Native tab minimization is delegated to iOS and disabled under Reduce Motion. A tab's `ScrollList` must be the first element of its screen with no wrapper view, because iOS finds the scroll view there (verified with `LegendList` on the iOS 26.5 simulator); `LibraryScreen` renders its list as the root. Header actions use `GlassView` directly with an explicit corner radius and the app's resolved color scheme.
+The glass tab shell adds a native search-role route with a nested Stack search controller. Its bottom search field feeds displayed-title filtering in the virtualized Library screen. The fallback replaces the Library title/actions with an inline search input and Cancel through the same screen. Reanimated entering/exiting transforms run for 180 ms on the UI thread and respect system Reduce Motion; Cancel restores the original header without changing the Library. Both routes reuse one app Library instance from `src/features/library/app-library.ts` (the E2E build installs its test adapters there so Search never creates a second reconciler); focusing Search reloads its snapshot without creating another reconciler or reading PDF pages. Native tab minimization is delegated to iOS and disabled under Reduce Motion. A tab's `ScrollList` must be the first element of its screen with no wrapper view, because iOS finds the scroll view there (verified with `LegendList` on the iOS 26.5 simulator); `LibraryScreen` renders its list as the root. Glass header actions use `GlassView` directly with an explicit corner radius and the app's resolved color scheme.
 
 Library browsing queries metadata through `PublicationLibrary.list(query)` and the shared pure `queryPublications` snapshot query. Recent filters opened publications, orders last-opened descending and caps at three; title search also applies to Recent. All publications default to recently imported. Date orders have oldest-first reverses; unopened publications stay last in both opened orders. Equal primary values use normalized displayed title then stable ID; descending title preserves ID ordering for equal titles. Queries normalize titles and parse sort timestamps once per matching publication, then compare cached keys. They allocate per publication, never per PDF page.
 
 Library and native Search expose temporary selection over matching results. Changing search prunes hidden selections; Select all includes every matching publication even when virtualized offscreen. Confirmation captures selected publication IDs and states the count. `removeMany(ids, { signal })` deduplicates that captured set and runs the existing durable removal sequentially, reporting each outcome. Cancellation finishes the current durable removal and stops before the next; the pending dialog offers Stop removal and aborts on disposal. Unprocessed and failed publications remain selected for retry. Partial failures retain failed selections for retry; committed removals with pending cleanup remain removed and prompt relaunch. No schema or native adapter changes are required.
+
+Library header controls use a compact, background-free variant on the non-glass fallback: 22-point symbols inside 44-point labeled targets, with Search, Import, and Edit beside the title. Glass header icon controls use the same 22-point symbols on 40-point circular surfaces within 44-point touch targets; text actions retain their larger pills. Headerless Library, Favorites, and Settings roots apply the Android top safe-area inset explicitly; iOS keeps automatic scroll inset adjustment. Theme saves run serially in tap order while the UI updates optimistically; only the latest request can report failure or restore the persisted preference.

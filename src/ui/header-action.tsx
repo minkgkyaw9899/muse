@@ -8,7 +8,7 @@ import { detectTabBarKind } from '@/theme/glass-capability';
 import { useAppTheme } from '@/theme/theme-provider';
 
 const glassAvailable = detectTabBarKind() === 'glass';
-/** Half the 56-point minimum control height: a circle for icons, a pill for text. */
+/** Glass icons have a 40-point surface; text actions retain their 56-point pill. */
 const ACTION_RADIUS = 28;
 
 /** Accessible Library header action with a complete non-glass surface. */
@@ -17,6 +17,7 @@ export function HeaderAction({
   hint,
   icon,
   text,
+  compact = false,
   disabled = false,
   onPress,
 }: {
@@ -24,13 +25,15 @@ export function HeaderAction({
   hint?: string;
   icon?: SymbolName;
   text?: string;
+  compact?: boolean;
   disabled?: boolean;
   onPress?: () => void;
 }) {
   const { tokens, scheme } = useAppTheme();
+  const smallGlassIcon = glassAvailable && !!icon;
   const content = (
     <View
-      className={`min-h-14 min-w-14 items-center justify-center px-4 ${disabled ? 'opacity-40' : ''}`}
+      className={`${compact ? 'h-11 w-11' : smallGlassIcon ? 'h-10 w-10' : 'min-h-14 min-w-14 px-4'} items-center justify-center ${disabled ? 'opacity-40' : ''}`}
     >
       {icon ? (
         <SymbolView
@@ -38,7 +41,7 @@ export function HeaderAction({
           name={icon}
           weight={{ ios: 'bold', android: androidBold }}
           tintColor={tokens.accent}
-          size={32}
+          size={22}
         />
       ) : (
         <Text className="font-semibold text-text text-xl">{text}</Text>
@@ -53,14 +56,16 @@ export function HeaderAction({
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      className="rounded-full active:opacity-60"
+      className="min-h-11 min-w-11 items-center justify-center rounded-full active:opacity-60"
     >
-      {glassAvailable ? (
+      {compact ? (
+        content
+      ) : glassAvailable ? (
         <GlassView
           glassEffectStyle="regular"
           colorScheme={scheme}
           isInteractive={!disabled}
-          style={{ borderRadius: ACTION_RADIUS }}
+          style={{ borderRadius: smallGlassIcon ? 20 : ACTION_RADIUS }}
         >
           {content}
         </GlassView>

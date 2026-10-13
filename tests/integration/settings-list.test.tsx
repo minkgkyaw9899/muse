@@ -1,14 +1,18 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
+import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
+
 import { SettingsScreen } from '@/screens/settings-screen';
 import { createInMemoryPreferenceStore } from '@/testing/in-memory-preference-store';
 import { ThemeProvider } from '@/theme/theme-provider';
 
 async function renderSettings(stored: string | null, onOpenAppearance = jest.fn()) {
   await render(
-    <ThemeProvider store={createInMemoryPreferenceStore(stored)}>
-      <SettingsScreen onOpenAppearance={onOpenAppearance} />
-    </ThemeProvider>,
+    <SafeAreaInsetsContext.Provider value={{ top: 24, bottom: 0, left: 0, right: 0 }}>
+      <ThemeProvider store={createInMemoryPreferenceStore(stored)}>
+        <SettingsScreen onOpenAppearance={onOpenAppearance} />
+      </ThemeProvider>
+    </SafeAreaInsetsContext.Provider>,
   );
   return onOpenAppearance;
 }

@@ -545,9 +545,9 @@ it('selects only matching results, confirms the count, and preserves hidden publ
   ]);
   await render(providers(<LibraryScreen library={library} />));
   await screen.findByText('Field Notes');
+  await fireEvent.press(screen.getByRole('button', { name: 'Edit Library' }));
   await fireEvent.press(screen.getByRole('button', { name: 'Search Library' }));
   await fireEvent.changeText(screen.getByLabelText('Search Library titles'), 'field');
-  await fireEvent.press(screen.getByRole('button', { name: 'Edit Library' }));
   await fireEvent.press(screen.getByRole('button', { name: 'Select all visible publications' }));
   expect(screen.getByRole('checkbox', { name: /Field Notes/ })).toBeChecked();
   expect(screen.getByRole('checkbox', { name: /Field Guide/ })).toBeChecked();
